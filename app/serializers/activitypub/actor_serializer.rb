@@ -100,7 +100,8 @@ class ActivityPub::ActorSerializer < ActivityPub::Serializer
   end
 
   def indexable
-    object.suspended? ? false : (object.indexable || false)
+    # object.suspended? ? false : (object.indexable || false)
+    object.suspended? ? false : (object.indexable.nil? ? true : object.indexable)
   end
 
   def name
