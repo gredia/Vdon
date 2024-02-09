@@ -53,6 +53,11 @@ production:
     host: <%= ENV['DB_HOST'] || 'localhost' %>
     port: <%= ENV['DB_PORT'] || 5432 %>
     prepared_statements: <%= ENV['PREPARED_STATEMENTS'] || 'true' %>
+    #sslmodeCA
+    ssl-ca: <%= ENV['SSL_CA'] %>
+    ssl-cert: <%= ENV['SSL_CERT'] %>
+    ssl-key: <%= ENV['SSL_KEY'] %>
+
   replica:
     <<: *default
     database: <%= ENV['REPLICA_DB_NAME'] ||ENV['DB_NAME'] || 'mastodon_production' %>
