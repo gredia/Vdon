@@ -115,8 +115,15 @@ class ActivityPub::ProcessAccountService < BaseService
     @account.fields                  = property_values || {}
     @account.also_known_as           = as_array(@json['alsoKnownAs'] || []).map { |item| value_or_id(item) }
     @account.discoverable            = @json['discoverable'] || false
-    @account.indexable               = @json['indexable'] || true
+#    @account.indexable               = @json['indexable'] || true
+    @account.indexable               = set_misskey_indexable || true
     @account.memorial                = @json['memorial'] || false
+  end
+  
+  def set_misskey_indexable
+    return true if @json['indexable'].nil?
+
+    @json['indexable']
   end
 
   def set_fetchable_key!
