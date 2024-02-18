@@ -23,6 +23,7 @@ class StatusesIndex < Chewy::Index
       kuromoji: {
         type: 'kuromoji_tokenizer',
         mode: 'search',
+        #user_dictionary: 'userdict_ja.txt',
       },
     },
     analyzer: {
@@ -46,12 +47,19 @@ class StatusesIndex < Chewy::Index
           kuromoji_stemmer
           kuromoji_number
           kuromoji_baseform
+          kuromoji_part_of_speech
           icu_normalizer
           cjk_width
           english_stop
           english_stemmer
+          elision
         ),
       },
+      
+      ja_default_analyzer: {
+        tokenizer: 'kuromoji_tokenizer',
+      },
+
 
       hashtag: {
         tokenizer: 'keyword',
@@ -70,7 +78,7 @@ class StatusesIndex < Chewy::Index
   root date_detection: false do
     field(:id, type: 'long')
     field(:account_id, type: 'long')
-    field(:text, type: 'text', analyzer: 'verbatim', value: ->(status) { status.searchable_text }) { field(:stemmed, type: 'text', analyzer: 'content') }
+    field(:text, type: 'text', analyzer: 'ja_default_analyzer', value: ->(status) { status.searchable_text }) { field(:stemmed, type: 'text', analyzer: 'content') }
     field(:tags, type: 'text', analyzer: 'hashtag',  value: ->(status) { status.tags.map(&:display_name) })
     field(:searchable_by, type: 'long', value: ->(status) { status.searchable_by })
     field(:language, type: 'keyword')
