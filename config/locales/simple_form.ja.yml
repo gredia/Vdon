@@ -269,6 +269,7 @@ ja:
         must_be_follower: フォロワー以外からの通知をブロック
         must_be_following: フォローしていないユーザーからの通知をブロック
         must_be_following_dm: フォローしていないユーザーからのダイレクトメッセージをブロック
+        must_be_human: スパムの可能性の高いユーザーからの通知をブロック(推奨)
       invite:
         comment: コメント
       invite_request:

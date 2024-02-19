@@ -15,7 +15,7 @@ class NotifyService < BaseService
     @recipient    = recipient
     @activity     = activity
     @notification = Notification.new(account: @recipient, type: type, activity: @activity)
-
+    @mentions     = Mention.where(status_id: activity.status_id)
     return if recipient.user.nil? || blocked?
 
     @notification.save!
@@ -49,6 +49,13 @@ class NotifyService < BaseService
 
   def optional_non_following?
     @recipient.user.settings['interactions.must_be_following'] && !following_sender?
+  end
+
+  def optional_non_spammer?
+        @recipient.user.settings['interactions.must_be_human'] && (
+          @notification.from_account.followers_count < ENV.fetch('SPAM_FILTER_MINIMUM_FOLLOWERS', 5).to_i ||
+          @notification.from_account.created_at > ENV.fetch('SPAM_FILTER_MINIMUM_CREATE_DAYS', 6).to_i.day.ago
+        ) && @mentions.count > ENV.fetch('SPAM_FILTER_MINIMUM_MENTIONS', 1).to_i
   end
 
   def message?
@@ -120,6 +127,7 @@ class NotifyService < BaseService
     blocked ||= optional_non_follower?
     blocked ||= optional_non_following?
     blocked ||= optional_non_following_and_direct?
+    blocked ||= optional_non_spammer?
     blocked ||= conversation_muted?
     blocked ||= blocked_mention? if @notification.type == :mention
     blocked
