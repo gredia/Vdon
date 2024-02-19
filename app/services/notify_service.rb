@@ -52,10 +52,10 @@ class NotifyService < BaseService
   end
 
   def optional_non_spammer?
-        @recipient.user.settings['interactions.must_be_human'] && (
-          @notification.from_account.followers_count < ENV.fetch('SPAM_FILTER_MINIMUM_FOLLOWERS', 5).to_i ||
-          @notification.from_account.created_at > ENV.fetch('SPAM_FILTER_MINIMUM_CREATE_DAYS', 6).to_i.day.ago
-        ) && @mentions.count > ENV.fetch('SPAM_FILTER_MINIMUM_MENTIONS', 1).to_i
+    @recipient.user.settings['interactions.must_be_human'] && (
+      @notification.from_account.followers_count < ENV.fetch('SPAM_FILTER_MINIMUM_FOLLOWERS', 5).to_i ||
+      @notification.from_account.created_at > ENV.fetch('SPAM_FILTER_MINIMUM_CREATE_DAYS', 6).to_i.day.ago
+    ) && @mentions.count > ENV.fetch('SPAM_FILTER_MINIMUM_MENTIONS', 1).to_i && !@status.account.local?
   end
 
   def message?

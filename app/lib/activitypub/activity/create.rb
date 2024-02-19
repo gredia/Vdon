@@ -56,6 +56,7 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
 
       if @status.nil?
         process_status
+        like_spam_silence
       elsif @options[:delivered_to_account_id].present?
         postprocess_audience_and_deliver
       end
@@ -85,21 +86,17 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
     ApplicationRecord.transaction do
       @status = Status.create!(@params)
       attach_tags(@status)
-
-
-      # Delete status on zero follower user and nearly created account with include some replies
-      if like_a_spam?
-       @status = nil
-       raise ActiveRecord::Rollback
-      end 
     end
-
-    return if @status.nil?
-
     resolve_thread(@status)
     fetch_replies(@status)
     distribute
     forward_for_reply
+  end
+  
+  def like_spam_silence
+    if like_a_spam?
+      @status.account.silence!
+    end
   end
 
   def distribute
@@ -436,12 +433,15 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
     retry
   end
   
+  SPAM_FILTER_MINIMUM_FOLLOWERS = ENV.fetch('SPAM_FILTER_MINIMUM_FOLLOWERS', 0).to_i
+  SPAM_FILTER_MINIMUM_CREATE_DAYS = ENV.fetch('SPAM_FILTER_MINIMUM_CREATE_DAYS', 1).to_i
+  SPAM_FILTER_MINIMUM_MENTIONS = ENV.fetch('SPAM_FILTER_MINIMUM_MENTIONS', 1).to_i
   def like_a_spam?
     (
       !@status.account.local? &&
-      @status.account.followers_count.zero? &&
-      @status.account.created_at > 7.day.ago &&
-      @mentions.count >= 2
+      @status.account.followers_count <= SPAM_FILTER_MINIMUM_FOLLOWERS &&
+      @status.account.created_at > SPAM_FILTER_MINIMUM_CREATE_DAYS.day.ago &&
+      @mentions.count > SPAM_FILTER_MINIMUM_MENTIONS
     )
   end
 end
