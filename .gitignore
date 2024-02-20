@@ -65,4 +65,4 @@ yarn-debug.log
 docker-compose.override.yml
 
 #spam_silence
-silence_log/
+#silence_log/

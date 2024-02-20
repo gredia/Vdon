@@ -1,0 +1,10 @@
+環境変数でスパムと思われるアカウントをsilenceにするようになっています
+.env
+フォロワーの数
+SPAM_FILTER_MINIMUM_FOLLOWERS 
+作った日付が何日前かでのフィルタ
+SPAM_FILTER_MINIMUM_CREATE_DAYS 
+メンションの数
+PAM_FILTER_MINIMUM_MENTIONS 
+ここにsilenceにしたLogが貯まっていきます
+app/lib/activitypub/activity/create.rb
