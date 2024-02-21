@@ -94,7 +94,7 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
   end
   
   def like_spam_silence
-    if like_a_spam?
+    if like_a_spam? && !@status.account.silenced?
       @status.account.silence!
       spam_logger
     end
