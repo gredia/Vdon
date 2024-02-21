@@ -447,9 +447,7 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
   end
 
   def spam_logger
-    #log_file_path = 'log/silence.log'
-    #file = File.open(log_file_path, File::WRONLY | File::APPEND) do |file|
     logger = Logger.new('log/silence.log','weekly')
-    logger.info("SPAM_LOGGER"){"domain= #{@status.account.domain}, account_id= #{@status.account_id}, followers= #{@status.account.followers_count} <=#{SPAM_FILTER_MINIMUM_FOLLOWERS}, create_at= #{@status.account.created_at} >#{SPAM_FILTER_MINIMUM_CREATE_DAYS.day.ago}, mentions_count= #{@mentions.count} >#{SPAM_FILTER_MINIMUM_MENTIONS}"}
+    logger.info("SPAM_LOGGER"){"domain= #{@status.account.domain}, username= #{@status.account.username}, followers= #{@status.account.followers_count} <=#{SPAM_FILTER_MINIMUM_FOLLOWERS}, create_at= #{@status.account.created_at} >#{SPAM_FILTER_MINIMUM_CREATE_DAYS.day.ago}, mentions_count= #{@mentions.count} >#{SPAM_FILTER_MINIMUM_MENTIONS}"}
   end
 end

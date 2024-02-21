@@ -64,4 +64,5 @@ yarn-debug.log
 # Ignore Docker option files
 docker-compose.override.yml
 
-
+#SPAM
+!/log/silence.log
