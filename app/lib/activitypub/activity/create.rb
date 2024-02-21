@@ -446,8 +446,10 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
     )
   end
 
+  SPAM_LOG_FILE = ENV.fetch('SPAM_LOG_FILE','log/silence.log')
+
   def spam_logger
-    logger = Logger.new('log/silence.log','weekly')
+    logger = Logger.new(SPAM_LOG_FILE,'weekly')
     logger.info("SPAM_LOGGER"){"domain= #{@status.account.domain}, username= #{@status.account.username}, followers= #{@status.account.followers_count} <=#{SPAM_FILTER_MINIMUM_FOLLOWERS}, create_at= #{@status.account.created_at} >#{SPAM_FILTER_MINIMUM_CREATE_DAYS.day.ago}, mentions_count= #{@mentions.count} >#{SPAM_FILTER_MINIMUM_MENTIONS}"}
   end
 end
