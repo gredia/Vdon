@@ -130,7 +130,7 @@ class NotifyService < BaseService
     blocked ||= optional_non_follower?
     blocked ||= optional_non_following?
     blocked ||= optional_non_following_and_direct?
-    blocked ||= optional_non_spammer? && @notification.type == :mention
+    blocked ||= optional_non_spammer? if @notification.type == :mention
     blocked ||= conversation_muted?
     blocked ||= blocked_mention? if @notification.type == :mention
     blocked
