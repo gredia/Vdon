@@ -55,7 +55,7 @@ class NotifyService < BaseService
     @recipient.user.settings['interactions.must_be_human'] && (
       @notification.from_account.followers_count < ENV.fetch('SPAM_FILTER_MINIMUM_FOLLOWERS', 5).to_i ||
       @notification.from_account.created_at > ENV.fetch('SPAM_FILTER_MINIMUM_CREATE_DAYS', 6).to_i.day.ago
-    ) && @mentions.count > ENV.fetch('SPAM_FILTER_MINIMUM_MENTIONS', 1).to_i && !@status.account.local?
+    ) && @mentions.count > ENV.fetch('SPAM_FILTER_MINIMUM_MENTIONS', 1).to_i && !@status.from_account.local?
   end
 
   def message?
