@@ -86,6 +86,10 @@ class ActivityPub::Parser::StatusParser
   end
 
   def language
+       @language ||= original_language || 'ja'
+  end
+
+  def original_language
     if content_language_map?
       @object['contentMap'].keys.first
     elsif name_language_map?
@@ -116,4 +120,13 @@ class ActivityPub::Parser::StatusParser
   def name_language_map?
     @object['nameMap'].is_a?(Hash) && !@object['nameMap'].empty?
   end
+  
+#  def instance_info
+#    @instance_info ||= InstanceInfo.find_by(domain: @account.domain)
+#  end
+
+#  def misskey_software?
+#    info = instance_info
+#    %w(misskey calckey).include?(info.software)
+#  end
 end
