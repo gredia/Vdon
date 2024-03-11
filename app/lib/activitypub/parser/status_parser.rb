@@ -86,7 +86,7 @@ class ActivityPub::Parser::StatusParser
   end
 
   def language
-       @language ||= original_language || 'ja'
+    @language ||= original_language || 'ja'
   end
 
   def original_language
