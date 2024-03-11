@@ -85,11 +85,11 @@ class ActivityPub::Parser::StatusParser
     end
   end
 
-  def language
-    @language ||= original_language || 'ja'
-  end
+#  def language
+#    @language ||= original_language || 'ja'
+#  end
 
-  def original_language
+  def language
     if content_language_map?
       @object['contentMap'].keys.first
     elsif name_language_map?
