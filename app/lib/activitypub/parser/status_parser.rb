@@ -3,6 +3,8 @@
 class ActivityPub::Parser::StatusParser
   include JsonLdHelper
 
+  NORMALIZED_LOCALE_NAMES = LanguagesHelper::SUPPORTED_LOCALES.keys.index_by(&:downcase).freeze
+
   # @param [Hash] json
   # @param [Hash] magic_values
   # @option magic_values [String] :followers_collection
@@ -90,6 +92,13 @@ class ActivityPub::Parser::StatusParser
 #  end
 
   def language
+    lang = raw_language_code
+    lang.presence && NORMALIZED_LOCALE_NAMES.fetch(lang.downcase.to_sym, lang)
+  end
+
+  private
+
+  def raw_language_code
     if content_language_map?
       @object['contentMap'].keys.first
     elsif name_language_map?
@@ -98,8 +107,6 @@ class ActivityPub::Parser::StatusParser
       @object['summaryMap'].keys.first
     end
   end
-
-  private
 
   def audience_to
     as_array(@object['to'] || @json['to']).map { |x| value_or_id(x) }
