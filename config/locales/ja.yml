@@ -1701,6 +1701,9 @@ ja:
     contrast: Mastodon (ハイコントラスト)
     default: Mastodon (ダーク)
     mastodon-light: Mastodon (ライト)
+    mastodon-bird-ui-dark: Mastodon Bird UI (青い鳥風UI ダーク)
+    mastodon-bird-ui-light: Mastodon Bird UI (青い鳥風UI ライト)
+    mastodon-bird-ui-contrast: Mastodon Bird UI (青い鳥風UI ハイコントラスト)
   time:
     formats:
       default: "%Y年%m月%d日 %H:%M"
