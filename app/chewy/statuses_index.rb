@@ -21,6 +21,13 @@ class StatusesIndex < Chewy::Index
       },
     },
 
+    tokenizer: {
+      ja_tokenizer: {
+      type: 'kuromoji_tokenizer',
+      mode: 'search',
+      },
+    },
+
     analyzer: {
       verbatim: {
         tokenizer: 'uax_url_email',
@@ -28,8 +35,18 @@ class StatusesIndex < Chewy::Index
       },
 
       content: {
-        tokenizer: 'standard',
+        tokenizer: 'ja_tokenizer',
+        char_filter: %w(
+         icu_normalizer
+         html_strip
+         kuromoji_iteration_mark
+        ),
         filter: %w(
+          kuromoji_stemmer
+          kuromoji_number
+          kuromoji_baseform
+          kuromoji_part_of_speech
+          icu_normalizer
           lowercase
           asciifolding
           cjk_width
@@ -38,6 +55,9 @@ class StatusesIndex < Chewy::Index
           english_stop
           english_stemmer
         ),
+      },
+      ja_default_analyzer: {
+        tokenizer: 'kuromoji_tokenizer',
       },
 
       hashtag: {
@@ -57,7 +77,7 @@ class StatusesIndex < Chewy::Index
   root date_detection: false do
     field(:id, type: 'long')
     field(:account_id, type: 'long')
-    field(:text, type: 'text', analyzer: 'verbatim', value: ->(status) { status.searchable_text }) { field(:stemmed, type: 'text', analyzer: 'content') }
+    field(:text, type: 'text', analyzer: 'ja_default_analyzer', value: ->(status) { status.searchable_text }) { field(:stemmed, type: 'text', analyzer: 'content') }
     field(:tags, type: 'text', analyzer: 'hashtag',  value: ->(status) { status.tags.map(&:display_name) })
     field(:searchable_by, type: 'long', value: ->(status) { status.searchable_by })
     field(:language, type: 'keyword')

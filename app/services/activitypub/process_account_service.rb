@@ -19,6 +19,7 @@ class ActivityPub::ProcessAccountService < BaseService
     @uri         = @json['id']
     @username    = username
     @domain      = TagManager.instance.normalize_domain(domain)
+    @shortcodes  = []
     @collections = {}
 
     # The key does not need to be unguessable, it just needs to be somewhat unique
@@ -43,8 +44,8 @@ class ActivityPub::ProcessAccountService < BaseService
         create_account
       end
 
-      update_account
       process_tags
+      update_account
 
       process_duplicate_accounts! if @options[:verified_webfinger]
     end
@@ -108,15 +109,22 @@ class ActivityPub::ProcessAccountService < BaseService
 
   def set_immediate_attributes!
     @account.featured_collection_url = @json['featured'] || ''
-    @account.display_name            = @json['name'] || ''
+    @account.display_name            = fix_emoji(@json['name']) || ''
     @account.note                    = @json['summary'] || ''
     @account.locked                  = @json['manuallyApprovesFollowers'] || false
     @account.fields                  = property_values || {}
     @account.also_known_as           = as_array(@json['alsoKnownAs'] || []).map { |item| value_or_id(item) }
     @account.discoverable            = @json['discoverable'] || false
-    @account.indexable               = @json['indexable'] || false
+#    @account.indexable               = @json['indexable'] || false
+    @account.indexable               = set_misskey_indexable || true
     @account.memorial                = @json['memorial'] || false
     @account.attribution_domains     = as_array(@json['attributionDomains'] || []).map { |item| value_or_id(item) }
+  end
+
+  def set_misskey_indexable
+    return true if @json['indexable'].nil?
+    
+    @json['indexable']
   end
 
   def set_fetchable_key!
@@ -337,6 +345,7 @@ class ActivityPub::ProcessAccountService < BaseService
     uri       = tag['id']
     updated   = tag['updated']
     emoji     = CustomEmoji.find_by(shortcode: shortcode, domain: @account.domain)
+    @shortcodes << shortcode unless emoji.nil?
 
     return unless emoji.nil? || image_url != emoji.image_remote_url || (updated && updated >= emoji.updated_at)
 
@@ -344,4 +353,15 @@ class ActivityPub::ProcessAccountService < BaseService
     emoji.image_remote_url = image_url
     emoji.save
   end
+  
+  def fix_emoji(text)
+    return text if text.blank? || @shortcodes.empty?
+    fixed_text = text.dup
+    @shortcodes.each do |shortcode|
+      fixed_text.gsub!(/([^\s\u200B])(:#{shortcode}:)/, "\\1\u200B\\2")
+      fixed_text.gsub!(/(:#{shortcode}:)([^\s\u200B])/, "\\1\u200B\\2")
+    end
+    fixed_text
+  end
+  
 end
