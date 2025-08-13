@@ -264,7 +264,7 @@ class AccountSearchService < BaseService
     return 0 if @account.nil? && query.size < MIN_QUERY_LENGTH
 
     if exact_match?
-      limit - 1
+      limit 
     else
       limit
     end

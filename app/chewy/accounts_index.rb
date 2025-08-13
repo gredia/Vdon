@@ -19,8 +19,15 @@ class AccountsIndex < Chewy::Index
         type: 'stemmer',
         language: 'possessive_english',
       },
+
+      word_joiner: {
+        type: 'shingle',
+        output_unigrams: true,
+        token_separator: '',
+      },
     },
 
+      # "The FOOING's bar" becomes "foo bar"
     analyzer: {
       content: {
         tokenizer: 'ja_tokenizer',
@@ -44,16 +51,25 @@ class AccountsIndex < Chewy::Index
           kuromoji_part_of_speech
         ),
       },
-
+      
       ja_default_analyzer: {
         tokenizer: 'kuromoji_tokenizer',
       },
 
+      # "FOO bar" becomes "foo bar"
       verbatim: {
         tokenizer: 'standard',
         filter: %w(lowercase asciifolding cjk_width),
       },
 
+      # "Foo bar" becomes "foo bar foobar"
+      word_join_analyzer: {
+        type: 'custom',
+        tokenizer: 'standard',
+        filter: %w(lowercase asciifolding cjk_width word_joiner),
+      },
+
+      # "Foo bar" becomes "f fo foo b ba bar"
       edge_ngram: {
         tokenizer: 'edge_ngram',
         filter: %w(lowercase asciifolding cjk_width),
@@ -66,7 +82,7 @@ class AccountsIndex < Chewy::Index
         min_gram: 1,
         max_gram: 15,
       },
-      
+
       ja_tokenizer: {
         type: 'kuromoji_tokenizer',
         mode: 'search',
