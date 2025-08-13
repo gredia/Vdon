@@ -19,43 +19,41 @@ class AccountsIndex < Chewy::Index
         type: 'stemmer',
         language: 'possessive_english',
       },
-
-      word_joiner: {
-        type: 'shingle',
-        output_unigrams: true,
-        token_separator: '',
-      },
     },
 
     analyzer: {
-      # "The FOOING's bar" becomes "foo bar"
-      natural: {
-        tokenizer: 'standard',
+      content: {
+        tokenizer: 'ja_tokenizer',
+        type: 'custom',
+        char_filter: %w(
+          icu_normalizer
+          html_strip
+          kuromoji_iteration_mark
+        ),
         filter: %w(
+          english_possessive_stemmer
           lowercase
           asciifolding
           cjk_width
           elision
-          english_possessive_stemmer
           english_stop
           english_stemmer
+          kuromoji_stemmer
+          kuromoji_number
+          kuromoji_baseform
+          kuromoji_part_of_speech
         ),
       },
 
-      # "FOO bar" becomes "foo bar"
+      ja_default_analyzer: {
+        tokenizer: 'kuromoji_tokenizer',
+      },
+
       verbatim: {
         tokenizer: 'standard',
         filter: %w(lowercase asciifolding cjk_width),
       },
 
-      # "Foo bar" becomes "foo bar foobar"
-      word_join_analyzer: {
-        type: 'custom',
-        tokenizer: 'standard',
-        filter: %w(lowercase asciifolding cjk_width word_joiner),
-      },
-
-      # "Foo bar" becomes "f fo foo b ba bar"
       edge_ngram: {
         tokenizer: 'edge_ngram',
         filter: %w(lowercase asciifolding cjk_width),
@@ -68,6 +66,11 @@ class AccountsIndex < Chewy::Index
         min_gram: 1,
         max_gram: 15,
       },
+      
+      ja_tokenizer: {
+        type: 'kuromoji_tokenizer',
+        mode: 'search',
+      },
     },
   }
 
@@ -79,8 +82,8 @@ class AccountsIndex < Chewy::Index
     field(:followers_count, type: 'long')
     field(:properties, type: 'keyword', value: ->(account) { account.searchable_properties })
     field(:last_status_at, type: 'date', value: ->(account) { clamp_date(account.last_status_at || account.created_at) })
-    field(:display_name, type: 'text', analyzer: 'verbatim') { field :edge_ngram, type: 'text', analyzer: 'edge_ngram', search_analyzer: 'verbatim' }
+    field(:display_name, type: 'text', analyzer: 'ja_default_analyzer') { field :edge_ngram, type: 'text', analyzer: 'edge_ngram', search_analyzer: 'content' }
     field(:username, type: 'text', analyzer: 'verbatim', value: ->(account) { [account.username, account.domain].compact.join('@') }) { field :edge_ngram, type: 'text', analyzer: 'edge_ngram', search_analyzer: 'verbatim' }
-    field(:text, type: 'text', analyzer: 'verbatim', value: ->(account) { account.searchable_text }) { field :stemmed, type: 'text', analyzer: 'natural' }
+    field(:text, type: 'text', analyzer: 'ja_default_analyzer', value: ->(account) { account.searchable_text }) { field :stemmed, type: 'text', analyzer: 'content' }
   end
 end
