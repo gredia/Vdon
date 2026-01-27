@@ -2843,7 +2843,7 @@ __metadata:
     "@vitest/ui": "npm:^3.2.4"
     arrow-key-navigation: "npm:^1.2.0"
     async-mutex: "npm:^0.5.0"
-    axios: "npm:^1.4.0"
+    axios: "npm:^1.12.2"
     babel-plugin-formatjs: "npm:^10.5.37"
     babel-plugin-transform-react-remove-prop-types: "npm:^0.4.24"
     blurhash: "npm:^2.0.5"
@@ -5478,14 +5478,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:^1.4.0":
-  version: 1.13.1
-  resolution: "axios@npm:1.13.1"
+"axios@npm:^1.12.2":
+  version: 1.13.3
+  resolution: "axios@npm:1.13.3"
   dependencies:
     follow-redirects: "npm:^1.15.6"
     form-data: "npm:^4.0.4"
     proxy-from-env: "npm:^1.1.0"
-  checksum: 10c0/de9c3c6de43d3ee1146d3afe78645f19450cac6a5d7235bef8b8e8eeb705c2e47e2d231dea99cecaec4dae1897c521118ca9413b9d474063c719c4d94c5b9adc
+  checksum: 10c0/86f0770624d9f14a3f8f8738c8b8f7f7fbb7b0d4ad38757db1de2d71007a0311bc597661c5ff4b4a9ee6350c6956a7282e3a281fcdf7b5b32054e35a8801e2ce
   languageName: node
   linkType: hard
 
