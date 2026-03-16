@@ -3,7 +3,12 @@
 class StatusesIndex < Chewy::Index
   include DatetimeClampingConcern
 
-  settings index: index_preset(refresh_interval: '30s', number_of_shards: 5), analysis: {
+  settings index: index_preset(refresh_interval: '30s', number_of_shards: 5).merge(
+    sort: {
+      field: 'id',
+      order: 'desc'
+    }
+    ), analysis: {
     filter: {
       english_stop: {
         type: 'stop',
