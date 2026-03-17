@@ -27,36 +27,29 @@ class AccountsIndex < Chewy::Index
       },
     },
 
-      # "The FOOING's bar" becomes "foo bar"
     analyzer: {
       content: {
         tokenizer: 'ja_tokenizer',
         type: 'custom',
         char_filter: %w(
           icu_normalizer
-          html_strip
-          kuromoji_iteration_mark
         ),
         filter: %w(
+          kuromoji_stemmer
+          kuromoji_part_of_speech
           english_possessive_stemmer
           lowercase
           asciifolding
           cjk_width
           elision
-          english_stop
           english_stemmer
-          kuromoji_stemmer
-          kuromoji_number
-          kuromoji_baseform
-          kuromoji_part_of_speech
         ),
       },
-      
+
       ja_default_analyzer: {
         tokenizer: 'kuromoji_tokenizer',
       },
 
-      # "FOO bar" becomes "foo bar"
       verbatim: {
         tokenizer: 'standard',
         filter: %w(lowercase asciifolding cjk_width),
