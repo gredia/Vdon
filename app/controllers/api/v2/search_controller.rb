@@ -63,12 +63,34 @@ class Api::V2::SearchController < Api::BaseController
   end
 
   def search_results
+    if requires_primary_db?(params[:q])
+      perform_search
+    else
+      with_read_replica { perform_search }
+    end
+  end
+
+  def perform_search
     SearchService.new.call(
       params[:q],
       current_account,
       limit_param(RESULTS_LIMIT),
       combined_search_params
     )
+  end
+
+  def requires_primary_db?(query)
+    return false unless truthy_param?(:resolve)
+    return false if query.blank?
+
+    q = query.strip
+
+    return true if q.match?(%r{\Ahttps?://})
+
+    q_without_at = q.gsub(/\A@/, '')
+    return true if q_without_at.include?('@') && "@#{q_without_at}".match?(/\A#{Account::MENTION_RE}\z/i)
+
+    false
   end
 
   def combined_search_params
