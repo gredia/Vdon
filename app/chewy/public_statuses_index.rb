@@ -21,6 +21,16 @@ class PublicStatusesIndex < Chewy::Index
         type: 'kuromoji_tokenizer',
         mode: 'search',
       },
+
+      ja_ngram_tokenizer: {
+        type: 'ngram',
+        min_gram: 2,
+        max_gram: 3,
+        token_chars: %w(
+          letter
+          digit
+        ),
+      },
     },
 
     analyzer: {
@@ -43,7 +53,27 @@ class PublicStatusesIndex < Chewy::Index
       },
 
       ja_default_analyzer: {
-        tokenizer: 'kuromoji_tokenizer',
+        tokenizer: 'ja_tokenizer',
+        type: 'custom',
+        char_filter: %w(
+          icu_normalizer
+        ),
+        filter: %w(
+          lowercase
+          cjk_width
+        ),
+      },
+
+      ja_ngram_analyzer: {
+        tokenizer: 'ja_ngram_tokenizer',
+        type: 'custom',
+        char_filter: %w(
+          icu_normalizer
+        ),
+        filter: %w(
+          lowercase
+          cjk_width
+        ),
       },
 
       hashtag: {
@@ -66,7 +96,10 @@ class PublicStatusesIndex < Chewy::Index
   root date_detection: false do
     field(:id, type: 'long')
     field(:account_id, type: 'long')
-    field(:text, type: 'text', analyzer: 'ja_default_analyzer', value: ->(status) { status.searchable_text }) { field(:stemmed, type: 'text', analyzer: 'content') }
+    field(:text, type: 'text', analyzer: 'ja_default_analyzer', value: ->(status) { status.searchable_text }) do
+      field(:stemmed, type: 'text', analyzer: 'content')
+      field(:ngram, type: 'text', analyzer: 'ja_ngram_analyzer', search_analyzer: 'ja_ngram_analyzer')
+    end
     field(:tags, type: 'text', analyzer: 'hashtag', value: ->(status) { status.tags.map(&:display_name) })
     field(:language, type: 'keyword')
     field(:properties, type: 'keyword', value: ->(status) { status.searchable_properties })
