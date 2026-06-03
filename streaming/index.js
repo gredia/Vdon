@@ -20,6 +20,8 @@ import { isTruthy, normalizeHashtag, firstParam } from './utils.js';
 
 const environment = process.env.NODE_ENV || 'development';
 const PERMISSION_VIEW_FEEDS = 0x0000000000100000;
+const VIRTUAL_KEMOMIMI_RELAY_SERVERS_URL = 'https://relay.virtualkemomimi.net/api/servers';
+const VIRTUAL_KEMOMIMI_RELAY_SERVERS_TTL = 7 * 24 * 60 * 60 * 1000;
 
 // Correctly detect and load .env or .env.production file based on environment:
 const dotenvFile = environment === 'production' ? '.env.production' : '.env';
@@ -105,6 +107,8 @@ const CHANNEL_NAMES = [
   'public:local:media',
   'public:remote',
   'public:remote:media',
+  'virtual_kemomimi_relay',
+  'virtual_kemomimi_relay:social',
   'hashtag',
   'hashtag:local',
 ];
@@ -239,6 +243,55 @@ const startServer = async () => {
   const subs = {};
 
   const redisSubscribeClient = Redis.createClient(redisConfig, logger);
+  const virtualKemomimiRelayServers = { domains: [], expiresAt: 0 };
+
+  const normalizeVirtualKemomimiRelayServer = entry => {
+    let value;
+
+    if (typeof entry === 'string') {
+      value = entry;
+    } else if (entry && typeof entry === 'object') {
+      value = entry.domain || entry.host || entry.server || entry.url || entry.Url;
+    }
+
+    if (typeof value !== 'string' || value.length === 0) {
+      return undefined;
+    }
+
+    try {
+      if (value.startsWith('http://') || value.startsWith('https://')) {
+        value = new URL(value).host;
+      }
+    } catch {
+      return undefined;
+    }
+
+    return value.toLowerCase().replace(/^@/, '') || undefined;
+  };
+
+  const refreshVirtualKemomimiRelayServers = () => {
+    const now = Date.now();
+
+    if (virtualKemomimiRelayServers.expiresAt > now) {
+      return virtualKemomimiRelayServers.domains;
+    }
+
+    virtualKemomimiRelayServers.expiresAt = now + VIRTUAL_KEMOMIMI_RELAY_SERVERS_TTL;
+
+    fetch(VIRTUAL_KEMOMIMI_RELAY_SERVERS_URL, { headers: { Accept: 'application/json' } }).then(async response => {
+      if (!response.ok) {
+        throw new Error(`VirtualKemomimi relay server list returned ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const entries = Array.isArray(payload) ? payload : payload.servers || payload.domains || payload.data || payload.items || [];
+      virtualKemomimiRelayServers.domains = Array.from(new Set(entries.map(normalizeVirtualKemomimiRelayServer).filter(Boolean)));
+    }).catch(err => {
+      logger.warn({ err }, 'Unable to refresh VirtualKemomimi relay server list');
+    });
+
+    return virtualKemomimiRelayServers.domains;
+  };
 
   // When checking metrics in the browser, the favicon is requested this
   // prevents the request from falling through to the API Router, which would
@@ -425,6 +478,8 @@ const startServer = async () => {
       return onlyMedia ? 'public:local:media' : 'public:local';
     case '/api/v1/streaming/public/remote':
       return onlyMedia ? 'public:remote:media' : 'public:remote';
+    case '/api/v1/streaming/virtual_kemomimi_relay':
+      return isTruthy(query.social) ? 'virtual_kemomimi_relay:social' : 'virtual_kemomimi_relay';
     case '/api/v1/streaming/hashtag':
       return 'hashtag';
     case '/api/v1/streaming/hashtag/local':
@@ -645,9 +700,11 @@ const startServer = async () => {
    * @param {boolean} options.needsFiltering
    * @param {boolean=} options.filterLocal
    * @param {boolean=} options.filterRemote
+   * @param {boolean=} options.virtualKemomimiRelay
+   * @param {boolean=} options.includeFollowed
    * @returns {SubscriptionListener}
    */
-  const streamFrom = (channelIds, req, log, output, attachCloseHandler, destinationType, { needsFiltering, filterLocal, filterRemote } = { needsFiltering: false, filterLocal: false, filterRemote: false }) => {
+  const streamFrom = (channelIds, req, log, output, attachCloseHandler, destinationType, { needsFiltering, filterLocal, filterRemote, virtualKemomimiRelay, includeFollowed } = { needsFiltering: false, filterLocal: false, filterRemote: false, virtualKemomimiRelay: false, includeFollowed: false }) => {
     log.info({ channelIds }, `Starting stream`);
 
     /**
@@ -710,6 +767,28 @@ const startServer = async () => {
         return;
       }
 
+      // @ts-expect-error
+      const accountDomain = payload.account.acct.split('@')[1];
+      let needsVirtualKemomimiRelayFollowCheck = false;
+
+      if (virtualKemomimiRelay) {
+        if (!req.accountId) {
+          return;
+        }
+
+        // @ts-expect-error
+        const ownStatus = String(payload.account.id) === String(req.accountId);
+        const serverListed = accountDomain && refreshVirtualKemomimiRelayServers().includes(accountDomain.toLowerCase());
+
+        if (!ownStatus && !serverListed) {
+          if (includeFollowed) {
+            needsVirtualKemomimiRelayFollowCheck = true;
+          } else {
+            return;
+          }
+        }
+      }
+
       // When the account is not logged in, it is not necessary to confirm the block or mute
       if (!req.accountId) {
         transmit(event, payload);
@@ -719,8 +798,6 @@ const startServer = async () => {
       // Filter based on domain blocks, blocks, mutes, or custom filters:
       // @ts-expect-error
       const targetAccountIds = [payload.account.id].concat(payload.mentions.map(item => item.id));
-      // @ts-expect-error
-      const accountDomain = payload.account.acct.split('@')[1];
 
       // TODO: Move this logic out of the message handling loop
       pgPool.connect((err, client, releasePgConnection) => {
@@ -749,8 +826,19 @@ const startServer = async () => {
           queries.push(client.query('SELECT 1 FROM account_domain_blocks WHERE account_id = $1 AND domain = $2', [req.accountId, accountDomain]));
         }
 
+        let virtualKemomimiRelayFollowCheckIndex;
+
+        if (needsVirtualKemomimiRelayFollowCheck) {
+          virtualKemomimiRelayFollowCheckIndex = queries.length;
+          // @ts-expect-error
+          queries.push(client.query('SELECT 1 FROM follows WHERE account_id = $1 AND target_account_id = $2', [req.accountId, payload.account.id]));
+        }
+
+        let customFilterIndex;
+
         // @ts-expect-error
         if (!payload.filtered && !req.cachedFilters) {
+          customFilterIndex = queries.length;
           // @ts-expect-error
           queries.push(client.query('SELECT filter.id AS id, filter.phrase AS title, filter.context AS context, filter.expires_at AS expires_at, filter.action AS filter_action, keyword.keyword AS keyword, keyword.whole_word AS whole_word FROM custom_filter_keywords keyword JOIN custom_filters filter ON keyword.custom_filter_id = filter.id WHERE filter.account_id = $1 AND (filter.expires_at IS NULL OR filter.expires_at > NOW())', [req.accountId]));
         }
@@ -762,6 +850,10 @@ const startServer = async () => {
           // then we don't transmit the payload of the event to the client
           // @ts-expect-error
           if (values[0].rows.length > 0 || (accountDomain && values[1].rows.length > 0)) {
+            return;
+          }
+
+          if (needsVirtualKemomimiRelayFollowCheck && values[virtualKemomimiRelayFollowCheckIndex].rows.length === 0) {
             return;
           }
 
@@ -778,7 +870,7 @@ const startServer = async () => {
           // @ts-ignore
           if (!req.cachedFilters) {
             // @ts-expect-error
-            const filterRows = values[accountDomain ? 2 : 1].rows;
+            const filterRows = values[customFilterIndex].rows;
 
             req.cachedFilters = filterRows.reduce((cache, filter) => {
               if (cache[filter.id]) {
@@ -1104,6 +1196,18 @@ const startServer = async () => {
       break;
     case 'public:remote:media':
       resolveFeed('public', 'timeline:public:remote:media', { needsFiltering: true });
+      break;
+    case 'virtual_kemomimi_relay':
+      resolve({
+        channelIds: ['timeline:public:local', 'timeline:public:remote'],
+        options: { needsFiltering: true, virtualKemomimiRelay: true },
+      });
+      break;
+    case 'virtual_kemomimi_relay:social':
+      resolve({
+        channelIds: ['timeline:public:local', 'timeline:public:remote'],
+        options: { needsFiltering: true, virtualKemomimiRelay: true, includeFollowed: true },
+      });
       break;
     case 'direct':
       resolve({

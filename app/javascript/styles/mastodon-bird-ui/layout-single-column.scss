@@ -4084,40 +4084,44 @@ body .compose-form .compose-form__uploads {
     order: 2;
   }
 
-  .layout-single-column .column-link[href="/notifications"] {
+  .layout-single-column .column-link[href="/virtual-kemomimi-relay"] {
     order: 3;
   }
 
-  .layout-single-column .column-link[href="/explore"] {
+  .layout-single-column .column-link[href="/notifications"] {
     order: 4;
   }
 
-  .layout-single-column .column-link[href="/public/local"] {
+  .layout-single-column .column-link[href="/explore"] {
     order: 5;
   }
 
-  .layout-single-column .column-link[href="/public"] {
+  .layout-single-column .column-link[href="/public/local"] {
     order: 6;
   }
 
-  .layout-single-column .column-link[href="/conversations"] {
+  .layout-single-column .column-link[href="/public"] {
     order: 7;
   }
 
-  .layout-single-column .column-link[href="/follow_requests"] {
+  .layout-single-column .column-link[href="/conversations"] {
     order: 8;
   }
 
-  .layout-single-column .column-link[href="/bookmarks"] {
+  .layout-single-column .column-link[href="/follow_requests"] {
     order: 9;
   }
 
-  .layout-single-column .column-link[href="/favourites"] {
+  .layout-single-column .column-link[href="/bookmarks"] {
     order: 10;
   }
 
-  .layout-single-column .column-link[href="/search"] {
+  .layout-single-column .column-link[href="/favourites"] {
     order: 11;
+  }
+
+  .layout-single-column .column-link[href="/search"] {
+    order: 12;
   }
 
   .layout-single-column .navigation-panel__list-panel,

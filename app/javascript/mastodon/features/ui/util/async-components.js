@@ -26,6 +26,10 @@ export function Firehose () {
   return import('../../firehose');
 }
 
+export function VirtualKemomimiRelayTimeline () {
+  return import('../../virtual_kemomimi_relay_timeline');
+}
+
 export function HashtagTimeline () {
   return import('../../hashtag_timeline');
 }

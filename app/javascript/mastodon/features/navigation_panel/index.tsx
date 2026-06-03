@@ -65,6 +65,10 @@ const messages = defineMessages({
     id: 'column.firehose_singular',
     defaultMessage: 'Live feed',
   },
+  virtualKemomimiRelay: {
+    id: 'column.virtual_kemomimi_relay',
+    defaultMessage: 'ぶいみみリレー',
+  },
   direct: { id: 'navigation_bar.direct', defaultMessage: 'Private mentions' },
   favourites: { id: 'navigation_bar.favourites', defaultMessage: 'Favorites' },
   bookmarks: { id: 'navigation_bar.bookmarks', defaultMessage: 'Bookmarks' },
@@ -193,6 +197,13 @@ const isFirehoseActive = (
   return !!match || pathname.startsWith('/public');
 };
 
+const isVirtualKemomimiRelayActive = (
+  match: unknown,
+  { pathname }: { pathname: string },
+) => {
+  return !!match || pathname.startsWith('/virtual-kemomimi-relay');
+};
+
 const MENU_WIDTH = 284;
 
 export const NavigationPanel: React.FC<{ multiColumn?: boolean }> = ({
@@ -253,6 +264,14 @@ export const NavigationPanel: React.FC<{ multiColumn?: boolean }> = ({
               iconComponent={HomeIcon}
               activeIconComponent={HomeActiveIcon}
               text={intl.formatMessage(messages.home)}
+            />
+            <ColumnLink
+              transparent
+              to='/virtual-kemomimi-relay'
+              icon='globe'
+              iconComponent={PublicIcon}
+              isActive={isVirtualKemomimiRelayActive}
+              text={intl.formatMessage(messages.virtualKemomimiRelay)}
             />
           </>
         )}
