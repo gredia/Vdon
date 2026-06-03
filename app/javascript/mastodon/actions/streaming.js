@@ -22,6 +22,7 @@ import {
   fillHomeTimelineGaps,
   fillPublicTimelineGaps,
   fillCommunityTimelineGaps,
+  fillVirtualKemomimiRelayTimelineGaps,
   fillListTimelineGaps,
 } from './timelines';
 
@@ -189,6 +190,17 @@ export const connectPublicStream = ({ onlyMedia, onlyRemote } = {}) =>
   connectTimelineStream(`public${onlyRemote ? ':remote' : ''}${onlyMedia ? ':media' : ''}`, `public${onlyRemote ? ':remote' : ''}${onlyMedia ? ':media' : ''}`, {}, {
     // @ts-expect-error
     fillGaps: () => fillPublicTimelineGaps({ onlyMedia, onlyRemote })
+  });
+
+/**
+ * @param {Object} options
+ * @param {boolean} [options.social]
+ * @returns {function(): void}
+ */
+export const connectVirtualKemomimiRelayStream = ({ social } = {}) =>
+  connectTimelineStream(`virtual_kemomimi_relay${social ? ':social' : ''}`, 'virtual_kemomimi_relay', { social: social ? 'true' : 'false' }, {
+    // @ts-expect-error
+    fillGaps: () => fillVirtualKemomimiRelayTimelineGaps({ social })
   });
 
 /**

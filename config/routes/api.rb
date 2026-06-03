@@ -52,6 +52,7 @@ namespace :api, format: false do
     namespace :timelines do
       resource :home, only: :show, controller: :home
       resource :public, only: :show, controller: :public
+      resource :virtual_kemomimi_relay, only: :show, controller: :virtual_kemomimi_relay
       resource :link, only: :show, controller: :link
       resources :tag, only: :show
       resources :list, only: :show
