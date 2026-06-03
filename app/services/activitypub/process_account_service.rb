@@ -141,7 +141,7 @@ class ActivityPub::ProcessAccountService < BaseService
 #    @account.indexable               = @json['indexable'] || true
     @account.indexable               = set_misskey_indexable || true
     @account.memorial                = @json['memorial'] || false
-    @account.attribution_domains     = as_array(@json['attributionDomains'] || []).take(Account::ATTRIBUTION_DOMAINS_HARD_LIMIT).map { |item| value_or_id(item) }
+    @account.attribution_domains     = as_array(@json['attributionDomains'] || []).take(Account::ATTRIBUTION_DOMAINS_HARD_LIMIT).filter { |item| item.is_a?(String) }
   end
 
     def set_misskey_indexable
