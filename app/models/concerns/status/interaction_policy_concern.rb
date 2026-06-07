@@ -10,10 +10,6 @@ module Status::InteractionPolicyConcern
     following: (1 << 3),
   }.freeze
 
-  # Stored in the existing integer so remote FEP-044f “nobody” can be distinguished
-  # from non-FEP/Misskey-style posts that simply omit interactionPolicy.
-  QUOTE_APPROVAL_POLICY_PRESENT_FLAG = 1 << 30
-
   included do
     before_validation :downgrade_quote_policy, if: -> { local? && !distributable? }
   end
@@ -38,7 +34,6 @@ module Status::InteractionPolicyConcern
 
     # Post author is always allowed to quote themselves
     return :automatic if account_id == other_account.id
-    return :denied unless distributable?
 
     automatic_policy = quote_approval_policy >> 16
     manual_policy = quote_approval_policy & 0xFFFF
@@ -69,29 +64,8 @@ module Status::InteractionPolicyConcern
     end
 
     return :unknown if (automatic_policy | manual_policy).anybits?(QUOTE_APPROVAL_POLICY_FLAGS[:unsupported_policy])
-    return :automatic if implicit_public_quote_policy?
 
     :denied
-  end
-
-  def explicit_quote_policy?
-    quote_approval_policy.anybits?(QUOTE_APPROVAL_POLICY_PRESENT_FLAG)
-  end
-
-  def implicit_public_quote_policy?
-    account.remote? && !explicit_quote_policy? && quote_approval_policy.zero? && distributable?
-  end
-
-  def quote_accepted_without_request_for_account?(other_account, preloaded_relations: {})
-    if local?
-      StatusPolicy.new(other_account, self, preloaded_relations).quote?
-    else
-      implicit_public_quote_policy?
-    end
-  end
-
-  def quote_request_needed?
-    !local? && !implicit_public_quote_policy?
   end
 
   def downgrade_quote_policy

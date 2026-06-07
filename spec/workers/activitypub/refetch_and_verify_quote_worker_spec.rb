@@ -18,20 +18,14 @@ RSpec.describe ActivityPub::RefetchAndVerifyQuoteWorker do
     it 'sends the status to the service' do
       worker.perform(quote.id, url, { 'approval_uri' => approval_uri })
 
-      expect(service).to have_received(:call).with(quote, approval_uri, fetchable_quoted_uri: url, request_id: anything, allow_legacy_quote_approval: false)
-    end
-
-    it 'passes legacy quote approval through to the service' do
-      worker.perform(quote.id, url, { 'approval_uri' => approval_uri, 'allow_legacy_quote_approval' => true })
-
-      expect(service).to have_received(:call).with(quote, approval_uri, fetchable_quoted_uri: url, request_id: anything, allow_legacy_quote_approval: true)
+      expect(service).to have_received(:call).with(quote, approval_uri, fetchable_quoted_uri: url, request_id: anything)
     end
 
     context 'with the old format' do
       it 'sends the status to the service' do
         worker.perform(quote.id, url)
 
-        expect(service).to have_received(:call).with(quote, nil, fetchable_quoted_uri: url, request_id: anything, allow_legacy_quote_approval: false)
+        expect(service).to have_received(:call).with(quote, nil, fetchable_quoted_uri: url, request_id: anything)
       end
     end
 
