@@ -6,16 +6,18 @@ class ActivityPub::VerifyQuoteService < BaseService
   MAX_SYNCHRONOUS_DEPTH = 2
 
   # Optionally fetch quoted post, and verify the quote is authorized
-  def call(quote, approval_uri, fetchable_quoted_uri: nil, prefetched_quoted_object: nil, prefetched_approval: nil, request_id: nil, depth: nil)
+  def call(quote, approval_uri, fetchable_quoted_uri: nil, prefetched_quoted_object: nil, prefetched_approval: nil, request_id: nil, depth: nil, allow_legacy_quote_approval: false)
     @request_id = request_id
     @depth = depth || 0
     @quote = quote
     @approval_uri = approval_uri.presence || @quote.approval_uri
+    @allow_legacy_quote_approval = allow_legacy_quote_approval
     @fetching_error = nil
 
     fetch_quoted_post_if_needed!(fetchable_quoted_uri, prefetched_body: prefetched_quoted_object)
+    return if fast_track_approval! || legacy_quote_approval!
     return if quote.quoted_account&.local?
-    return if fast_track_approval! || @approval_uri.blank?
+    return if @approval_uri.blank?
 
     @json = fetch_approval_object(@approval_uri, prefetched_body: prefetched_approval)
     return quote.reject! if @json.nil?
@@ -48,6 +50,16 @@ class ActivityPub::VerifyQuoteService < BaseService
     end
 
     false
+  end
+
+  def legacy_quote_approval!
+    return false unless @allow_legacy_quote_approval
+    return false if @approval_uri.present? || @quote.quoted_status_id.blank?
+    return false unless @quote.quoted_status.distributable?
+
+    @quote.accept!
+
+    true
   end
 
   def fetch_approval_object(uri, prefetched_body: nil)
