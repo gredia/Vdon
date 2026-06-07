@@ -126,11 +126,12 @@ class ActivityPub::Parser::StatusParser
   def quote_policy
     flags = 0
     policy = @object.dig('interactionPolicy', 'canQuote')
-    return flags if policy.blank?
+    return implicit_quote_policy if policy.blank?
 
     flags |= quote_subpolicy(policy['automaticApproval'])
     flags <<= 16
     flags |= quote_subpolicy(policy['manualApproval'])
+    flags |= Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG
 
     flags
   end
@@ -185,6 +186,12 @@ class ActivityPub::Parser::StatusParser
     flags |= Status::QUOTE_APPROVAL_POLICY_FLAGS[:unsupported_policy] unless allowed_actors.empty?
 
     flags
+  end
+
+  def implicit_quote_policy
+    return 0 unless %i(public unlisted).include?(visibility)
+
+    Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16
   end
 
   def raw_language_code

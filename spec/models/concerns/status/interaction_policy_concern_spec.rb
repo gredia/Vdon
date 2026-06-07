@@ -54,5 +54,37 @@ RSpec.describe Status::InteractionPolicyConcern do
         expect(status.quote_policy_for_account(account)).to eq :unknown
       end
     end
+
+    context 'with a remote public post without an explicit quote policy' do
+      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: 0) }
+
+      it 'returns :automatic' do
+        expect(status.quote_policy_for_account(account)).to eq :automatic
+      end
+    end
+
+    context 'with a remote unlisted post without an explicit quote policy' do
+      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :unlisted, quote_approval_policy: 0) }
+
+      it 'returns :automatic' do
+        expect(status.quote_policy_for_account(account)).to eq :automatic
+      end
+    end
+
+    context 'with a remote followers-only post without an explicit quote policy' do
+      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :private, quote_approval_policy: 0) }
+
+      it 'returns :denied' do
+        expect(status.quote_policy_for_account(account)).to eq :denied
+      end
+    end
+
+    context 'with a remote post with an explicit quote policy denying quotes' do
+      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'mastodon.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
+
+      it 'returns :denied' do
+        expect(status.quote_policy_for_account(account)).to eq :denied
+      end
+    end
   end
 end
