@@ -63,6 +63,18 @@ RSpec.describe Status::InteractionPolicyConcern do
       end
     end
 
+    context 'with a remote public post with an implicit quote policy' do
+      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
+
+      it 'returns :automatic' do
+        expect(status.quote_policy_for_account(account)).to eq :automatic
+      end
+
+      it 'does not need a quote request' do
+        expect(status).to_not be_quote_request_needed
+      end
+    end
+
     context 'with a remote unlisted post without an explicit quote policy' do
       let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :unlisted, quote_approval_policy: 0) }
 

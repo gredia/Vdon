@@ -79,7 +79,7 @@ module Status::InteractionPolicyConcern
   end
 
   def implicit_public_quote_policy?
-    account.remote? && !explicit_quote_policy? && quote_approval_policy.zero? && distributable?
+    account.remote? && !explicit_quote_policy? && distributable?
   end
 
   def quote_accepted_without_request_for_account?(other_account, preloaded_relations: {})

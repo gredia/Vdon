@@ -325,6 +325,18 @@ RSpec.describe PostStatusService do
     expect(ActivityPub::QuoteRequestWorker).to_not have_enqueued_sidekiq_job
   end
 
+  it 'accepts a quote of a remote public post with an implicit quote policy' do
+    account = Fabricate(:account)
+    quoted_status = Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)
+
+    status = subject.call(account, text: 'test', quoted_status: quoted_status)
+
+    expect(status.quote)
+      .to be_accepted
+      .and have_attributes(quoted_status: quoted_status)
+    expect(ActivityPub::QuoteRequestWorker).to_not have_enqueued_sidekiq_job
+  end
+
   it 'correctly downgrades visibility for private self-quotes' do
     account = Fabricate(:account)
     quoted_status = Fabricate(:status, account: account, visibility: :private)
