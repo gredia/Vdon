@@ -372,9 +372,9 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
     return if @quote.nil?
 
     embedded_quote = safe_prefetched_embed(@account, @status_parser.quoted_object, @json['context'])
-    ActivityPub::VerifyQuoteService.new.call(@quote, @quote_approval_uri, fetchable_quoted_uri: @quote_uri, prefetched_quoted_object: embedded_quote, request_id: @options[:request_id], depth: @options[:depth])
+    ActivityPub::VerifyQuoteService.new.call(@quote, @quote_approval_uri, fetchable_quoted_uri: @quote_uri, prefetched_quoted_object: embedded_quote, request_id: @options[:request_id], depth: @options[:depth], allow_legacy_quote_approval: @status_parser.legacy_quote?)
   rescue Mastodon::RecursionLimitExceededError, Mastodon::UnexpectedResponseError, *Mastodon::HTTP_CONNECTION_ERRORS
-    ActivityPub::RefetchAndVerifyQuoteWorker.perform_in(rand(30..600).seconds, @quote.id, @quote_uri, { 'request_id' => @options[:request_id], 'approval_uri' => @quote_approval_uri })
+    ActivityPub::RefetchAndVerifyQuoteWorker.perform_in(rand(30..600).seconds, @quote.id, @quote_uri, { 'request_id' => @options[:request_id], 'approval_uri' => @quote_approval_uri, 'allow_legacy_quote_approval' => @status_parser.legacy_quote? })
   end
 
   def conversation_from_uri(uri)
