@@ -56,13 +56,17 @@ class VirtualKemomimiRelayFeed
   end
 
   def visibility_scope
-    condition = server_domain_scope.or(own_status_scope)
+    condition = server_domain_scope.or(local_server_scope).or(own_status_scope)
     condition = condition.or(followed_status_scope) if include_followed?
     condition
   end
 
   def server_domain_scope
     Account.arel_table[:domain].in(VirtualKemomimiRelay::ServerList.domains)
+  end
+
+  def local_server_scope
+    Account.arel_table[:domain].eq(nil)
   end
 
   def own_status_scope

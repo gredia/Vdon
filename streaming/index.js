@@ -780,7 +780,7 @@ const startServer = async () => {
         const ownStatus = String(payload.account.id) === String(req.accountId);
         const serverListed = accountDomain && refreshVirtualKemomimiRelayServers().includes(accountDomain.toLowerCase());
 
-        if (!ownStatus && !serverListed) {
+        if (!ownStatus && !localPayload && !serverListed) {
           if (includeFollowed) {
             needsVirtualKemomimiRelayFollowCheck = true;
           } else {

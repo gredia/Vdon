@@ -51,9 +51,9 @@ const VirtualKemomimiRelayTimeline = ({ social, multiColumn }) => {
   }, [dispatch, signedIn, social]);
 
   const prependBanner = social ? (
-    <DismissableBanner id='virtual_kemomimi_relay_social_timeline'><FormattedMessage id='dismissable_banner.virtual_kemomimi_relay_social' defaultMessage='バーチャルけもみみリレー参加サーバーの公開投稿、あなたの公開投稿、自分がフォローしているアカウントの公開投稿を表示します。' /></DismissableBanner>
+    <DismissableBanner id='virtual_kemomimi_relay_social_timeline'><FormattedMessage id='dismissable_banner.virtual_kemomimi_relay_social' defaultMessage='自分のサーバーとバーチャルけもみみリレー参加サーバーの公開投稿、あなたの公開投稿、自分がフォローしているアカウントの公開投稿を表示します。' /></DismissableBanner>
   ) : (
-    <DismissableBanner id='virtual_kemomimi_relay_timeline'><FormattedMessage id='dismissable_banner.virtual_kemomimi_relay' defaultMessage='バーチャルけもみみリレー参加サーバーの公開投稿と、あなたの公開投稿を表示します。' /></DismissableBanner>
+    <DismissableBanner id='virtual_kemomimi_relay_timeline'><FormattedMessage id='dismissable_banner.virtual_kemomimi_relay' defaultMessage='自分のサーバーとバーチャルけもみみリレー参加サーバーの公開投稿、あなたの公開投稿を表示します。' /></DismissableBanner>
   );
 
   return (
