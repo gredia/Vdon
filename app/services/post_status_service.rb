@@ -109,7 +109,7 @@ class PostStatusService < BaseService
     status.quote = Quote.create(quoted_status: @quoted_status, status: status)
     status.quote.ensure_quoted_access
 
-    status.quote.accept! if (@quoted_status.local? && StatusPolicy.new(@status.account, @quoted_status).quote?) || @quoted_status.implicit_public_quote_policy?
+    status.quote.accept! if @quoted_status.quote_accepted_without_request_for_account?(@status.account)
   end
 
   def safeguard_mentions!(status)
@@ -156,7 +156,11 @@ class PostStatusService < BaseService
     DistributionWorker.perform_async(@status.id)
     ActivityPub::DistributionWorker.perform_async(@status.id)
     PollExpirationNotifyWorker.perform_at(@status.poll.expires_at, @status.poll.id) if @status.poll
-    ActivityPub::QuoteRequestWorker.perform_async(@status.quote.id) if @status.quote&.quoted_status.present? && !@status.quote&.quoted_status&.local? && !@status.quote&.accepted?
+    ActivityPub::QuoteRequestWorker.perform_async(@status.quote.id) if quote_request_needed?
+  end
+
+  def quote_request_needed?
+    @status.quote&.quoted_status.present? && !@status.quote&.accepted? && @status.quote.quoted_status.quote_request_needed?
   end
 
   def validate_media!

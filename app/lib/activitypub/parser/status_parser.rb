@@ -131,9 +131,8 @@ class ActivityPub::Parser::StatusParser
     flags |= quote_subpolicy(policy['automaticApproval'])
     flags <<= 16
     flags |= quote_subpolicy(policy['manualApproval'])
-    flags |= Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG
 
-    flags
+    mark_explicit_quote_policy(flags)
   end
 
   def quote?
@@ -192,6 +191,10 @@ class ActivityPub::Parser::StatusParser
     return 0 unless %i(public unlisted).include?(visibility)
 
     Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16
+  end
+
+  def mark_explicit_quote_policy(flags)
+    flags | Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG
   end
 
   def raw_language_code
