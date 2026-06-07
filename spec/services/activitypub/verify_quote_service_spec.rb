@@ -248,6 +248,8 @@ RSpec.describe ActivityPub::VerifyQuoteService do
       let(:approval_uri) { nil }
 
       context 'without any fast-track condition' do
+        let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
+
         it 'does not update the status' do
           expect { subject.call(quote, approval_uri_arg) }
             .to_not change(quote, :state)
@@ -264,6 +266,8 @@ RSpec.describe ActivityPub::VerifyQuoteService do
       end
 
       context 'when the account is mentioned by the quoted post' do
+        let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
+
         before do
           quoted_status.mentions << Mention.new(account: account)
         end
@@ -333,7 +337,26 @@ RSpec.describe ActivityPub::VerifyQuoteService do
         end
       end
 
-      context 'with a legacy quote but without legacy quote approval enabled' do
+      context 'with an implicit quote policy on the quoted post' do
+        let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :public) }
+
+        it 'accepts the quote without fetching an approval' do
+          expect { subject.call(quote, approval_uri_arg) }
+            .to change(quote, :state).to('accepted')
+        end
+      end
+
+      context 'with an explicit quote policy but without an approval' do
+        let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG | (Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)) }
+
+        it 'does not update the status' do
+          expect { subject.call(quote, approval_uri_arg) }
+            .to_not change(quote, :state).from('pending')
+        end
+      end
+
+      context 'with a legacy quote for an explicit-policy post but without legacy quote approval enabled' do
+        let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
         let(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, legacy: true) }
 
         it 'does not update the status' do

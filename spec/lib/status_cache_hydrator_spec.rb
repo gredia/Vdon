@@ -64,6 +64,15 @@ RSpec.describe StatusCacheHydrator do
           expect(subject[:quote]).to_not be_nil
           expect(subject[:quote_status]).to be_nil
         end
+
+        context 'when the quoted post has an implicit public quote policy' do
+          let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public) }
+
+          it 'accepts and renders the quote' do
+            expect(subject[:quote]).to_not be_nil
+            expect(status.quote.reload).to be_accepted
+          end
+        end
       end
 
       context 'when handling an approved quote' do

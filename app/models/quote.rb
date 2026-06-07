@@ -67,6 +67,13 @@ class Quote < ApplicationRecord
     accepted? || !legacy?
   end
 
+  def accept_implicit_public_quote!
+    return false unless pending? && quoted_status&.implicit_public_quote_policy?
+
+    accept!
+    true
+  end
+
   def ensure_quoted_access
     status.mentions.create!(account: quoted_account, silent: true)
   rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique

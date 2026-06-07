@@ -4,6 +4,7 @@ class REST::BaseQuoteSerializer < ActiveModel::Serializer
   attributes :state
 
   def state
+    object.accept_implicit_public_quote!
     return object.state unless object.accepted?
 
     # Extra states when a status is unavailable
@@ -13,6 +14,7 @@ class REST::BaseQuoteSerializer < ActiveModel::Serializer
   end
 
   def quoted_status
+    object.accept_implicit_public_quote!
     object.quoted_status if (object.accepted? || instance_options[:source_requested]) && object.quoted_status.present? && !object.quoted_status&.reblog? && status_filter.filter_state_for_quote != 'unauthorized'
   end
 

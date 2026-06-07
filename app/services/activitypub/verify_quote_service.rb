@@ -53,7 +53,7 @@ class ActivityPub::VerifyQuoteService < BaseService
   end
 
   def legacy_quote_approval!
-    return false unless @allow_legacy_quote_approval
+    return false unless @allow_legacy_quote_approval || @quote.quoted_status&.implicit_public_quote_policy?
     return false if @approval_uri.present? || @quote.quoted_status_id.blank?
     return false unless @quote.quoted_status.distributable?
 

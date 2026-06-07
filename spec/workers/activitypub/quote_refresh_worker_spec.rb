@@ -22,6 +22,18 @@ RSpec.describe ActivityPub::QuoteRefreshWorker do
 
         expect(service).to have_received(:call).with(quote, quote.approval_uri)
       end
+
+      context 'when the quoted post has an implicit public quote policy' do
+        let(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, updated_at: updated_at) }
+        let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public) }
+
+        it 'accepts the quote without calling the service' do
+          expect { worker.perform(quote.id) }
+            .to change { quote.reload.state }.from('pending').to('accepted')
+
+          expect(service).to_not have_received(:call)
+        end
+      end
     end
 
     context 'when dealing with a recent quote' do

@@ -10,6 +10,6 @@ class ActivityPub::QuoteRefreshWorker
     return if quote.nil? || quote.updated_at > Quote::BACKGROUND_REFRESH_INTERVAL.ago
 
     quote.touch
-    ActivityPub::VerifyQuoteService.new.call(quote, quote.approval_uri)
+    quote.accept_implicit_public_quote! || ActivityPub::VerifyQuoteService.new.call(quote, quote.approval_uri)
   end
 end
