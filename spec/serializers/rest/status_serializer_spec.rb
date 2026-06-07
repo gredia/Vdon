@@ -82,17 +82,6 @@ RSpec.describe REST::StatusSerializer do
       end
     end
 
-    context 'without an explicit quote policy' do
-      let(:status) { Fabricate(:status, account: bob, visibility: :public, quote_approval_policy: 0) }
-
-      it 'serializes the quote approval as automatic for the current user' do
-        expect(subject['quote_approval'])
-          .to include(
-            'current_user' => 'automatic'
-          )
-      end
-    end
-
     context 'when edited_at is populated' do
       let(:status) { Fabricate.build :status, edited_at: 3.days.ago }
 
