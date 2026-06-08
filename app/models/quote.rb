@@ -64,7 +64,7 @@ class Quote < ApplicationRecord
   end
 
   def acceptable?
-    accepted? || !legacy?
+    accepted? || !legacy? || pending?
   end
 
   def accept_implicit_public_quote!

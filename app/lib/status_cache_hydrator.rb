@@ -61,7 +61,7 @@ class StatusCacheHydrator
     # TODO: performance optimization by not loading `Account` twice
     payload[:quote_approval][:current_user] = status.quote_policy_for_account(Account.find_by(id: account_id)) if payload[:quote_approval]
     hydrate_status_quote_payload(payload, status, account_id, nested:) if status.quote
-    payload[:content] = status_content_format(status) if payload[:content] && !status.local? && status.quote&.accepted?
+    payload[:content] = status_content_format(status) if payload[:content] && !status.local? && status.quote.present?
 
     if payload[:poll]
       if fresh

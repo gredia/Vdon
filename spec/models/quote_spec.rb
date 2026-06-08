@@ -3,6 +3,29 @@
 require 'rails_helper'
 
 RSpec.describe Quote do
+  describe '#acceptable?' do
+    subject { quote.acceptable? }
+
+    let(:quote) { Fabricate(:quote, state: state, legacy: legacy) }
+    let(:legacy) { false }
+    let(:state) { :pending }
+
+    it { is_expected.to be true }
+
+    context 'with a pending legacy quote' do
+      let(:legacy) { true }
+
+      it { is_expected.to be true }
+    end
+
+    context 'with a rejected legacy quote' do
+      let(:legacy) { true }
+      let(:state) { :rejected }
+
+      it { is_expected.to be false }
+    end
+  end
+
   describe '#accept_implicit_public_quote!' do
     subject(:accept_implicit_public_quote) { quote.accept_implicit_public_quote! }
 

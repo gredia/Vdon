@@ -12,10 +12,9 @@ RSpec.describe FormattingHelper do
     let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), uri: 'https://quoted.example/notes/abc123', url: 'https://quoted.example/notes/abc123') }
     let(:status) { Fabricate(:status, account: account, text: text) }
     let(:text) { '<p>RE: <a href="https://quoted.example/notes/abc123">notes/abc123</a></p><p>Hello</p>' }
+    let(:legacy) { false }
 
-    before do
-      Fabricate(:quote, status: status, quoted_status: quoted_status, state: quote_state)
-    end
+    before { Fabricate(:quote, status: status, quoted_status: quoted_status, state: quote_state, legacy: legacy) }
 
     context 'with an accepted remote quote fallback' do
       let(:quote_state) { :accepted }
@@ -31,6 +30,15 @@ RSpec.describe FormattingHelper do
       it 'keeps the fallback paragraph' do
         expect(subject).to include 'RE:'
       end
+
+      context 'when it is a legacy quote' do
+        let(:legacy) { true }
+        let(:quoted_status) { nil }
+
+        it 'strips the fallback paragraph' do
+          expect(subject).to eq '<p>Hello</p>'
+        end
+      end
     end
 
     context 'when the fallback points elsewhere' do
@@ -39,6 +47,14 @@ RSpec.describe FormattingHelper do
 
       it 'keeps the paragraph' do
         expect(subject).to include 'RE:'
+      end
+
+      context 'when it is a legacy quote' do
+        let(:legacy) { true }
+
+        it 'strips the fallback paragraph' do
+          expect(subject).to eq '<p>Hello</p>'
+        end
       end
     end
   end
