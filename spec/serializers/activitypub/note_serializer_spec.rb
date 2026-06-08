@@ -56,6 +56,31 @@ RSpec.describe ActivityPub::NoteSerializer do
         'quoteAuthorization' => ActivityPub::TagManager.instance.approval_uri_for(quote),
       })
     end
+
+    it 'keeps the Mastodon quote fallback hidden in content' do
+      expect(subject['content'])
+        .to include('class="quote-inline"')
+    end
+
+    context 'when quoting a remote post without an explicit quote policy' do
+      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, uri: 'https://misskey.example/notes/abc123', url: 'https://misskey.example/notes/abc123') }
+
+      it 'makes the fallback link visible for servers that do not accept the quote' do
+        expect(subject['content'])
+          .to include('RE:', 'href="https://misskey.example/notes/abc123"')
+        expect(subject['content'])
+          .to_not include('quote-inline')
+      end
+    end
+
+    context 'when quoting a remote post with an explicit quote policy' do
+      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'remote.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG | (Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)) }
+
+      it 'keeps the Mastodon quote fallback hidden in content' do
+        expect(subject['content'])
+          .to include('class="quote-inline"')
+      end
+    end
   end
 
   context 'with a deleted quote' do

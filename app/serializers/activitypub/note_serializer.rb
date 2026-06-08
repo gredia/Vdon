@@ -51,7 +51,9 @@ class ActivityPub::NoteSerializer < ActivityPub::Serializer
   end
 
   def content
-    status_content_format(object)
+    content = status_content_format(object)
+
+    object.quote&.quoted_status&.implicit_public_quote_policy? ? visible_quote_fallback(content) : content
   end
 
   def content_map
@@ -246,6 +248,15 @@ class ActivityPub::NoteSerializer < ActivityPub::Serializer
         automaticApproval: approved_uris,
       },
     }
+  end
+
+  def visible_quote_fallback(content)
+    fragment = Nokogiri::HTML5.fragment(content)
+    quote_fallback = fragment.at_css('p.quote-inline')
+    return content if quote_fallback.nil?
+
+    quote_fallback.delete('class')
+    fragment.to_html
   end
 
   class MediaAttachmentSerializer < ActivityPub::Serializer
