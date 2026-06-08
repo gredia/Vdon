@@ -518,7 +518,7 @@ RSpec.describe ActivityPub::ProcessStatusUpdateService do
 
   context 'when the status has an existing unverified quote and adds an approval link through an implicit update' do
     let(:quoted_account) { Fabricate(:account, domain: 'quoted.example.com') }
-    let(:quoted_status) { Fabricate(:status, account: quoted_account) }
+    let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
     let!(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, approval_uri: nil) }
     let(:approval_uri) { 'https://quoted.example.com/approvals/1' }
 
@@ -582,7 +582,7 @@ RSpec.describe ActivityPub::ProcessStatusUpdateService do
 
   context 'when the status has an existing unverified quote and adds an approval link through an explicit update' do
     let(:quoted_account) { Fabricate(:account, domain: 'quoted.example.com') }
-    let(:quoted_status) { Fabricate(:status, account: quoted_account) }
+    let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
     let!(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, approval_uri: nil) }
     let(:approval_uri) { 'https://quoted.example.com/approvals/1' }
 
@@ -757,7 +757,7 @@ RSpec.describe ActivityPub::ProcessStatusUpdateService do
 
   context 'when the status has an existing verified quote and removes an approval link through an explicit update' do
     let(:quoted_account) { Fabricate(:account, domain: 'quoted.example.com') }
-    let(:quoted_status) { Fabricate(:status, account: quoted_account) }
+    let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
     let!(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, approval_uri: approval_uri, state: :accepted) }
     let(:approval_uri) { 'https://quoted.example.com/approvals/1' }
 
@@ -792,7 +792,7 @@ RSpec.describe ActivityPub::ProcessStatusUpdateService do
 
   context 'when the status adds a verifiable quote through an explicit update' do
     let(:quoted_account) { Fabricate(:account, domain: 'quoted.example.com') }
-    let(:quoted_status) { Fabricate(:status, account: quoted_account) }
+    let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
     let(:approval_uri) { 'https://quoted.example.com/approvals/1' }
 
     let(:payload) do
@@ -923,7 +923,7 @@ RSpec.describe ActivityPub::ProcessStatusUpdateService do
 
   context 'when the status adds a unverifiable quote through an implicit update' do
     let(:quoted_account) { Fabricate(:account, domain: 'quoted.example.com') }
-    let(:quoted_status) { Fabricate(:status, account: quoted_account) }
+    let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
     let(:approval_uri) { 'https://quoted.example.com/approvals/1' }
 
     let(:payload) do
@@ -955,7 +955,7 @@ RSpec.describe ActivityPub::ProcessStatusUpdateService do
 
   context 'when the status adds a unverifiable quote through an explicit update' do
     let(:quoted_account) { Fabricate(:account, domain: 'quoted.example.com') }
-    let(:quoted_status) { Fabricate(:status, account: quoted_account) }
+    let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
     let(:approval_uri) { 'https://quoted.example.com/approvals/1' }
 
     let(:payload) do

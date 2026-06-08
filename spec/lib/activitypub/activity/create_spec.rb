@@ -912,7 +912,7 @@ RSpec.describe ActivityPub::Activity::Create do
       end
 
       context 'with an unverifiable quote of a known post, with summary (CW) but no text' do
-        let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com')) }
+        let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
 
         let(:object_json) do
           build_object(
@@ -939,7 +939,7 @@ RSpec.describe ActivityPub::Activity::Create do
       end
 
       context 'with an unverifiable quote of a known post' do
-        let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com')) }
+        let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
 
         let(:object_json) do
           build_object(

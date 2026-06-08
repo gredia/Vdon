@@ -373,7 +373,18 @@ class ActivityPub::Activity::Create < ActivityPub::Activity
 
     embedded_quote = safe_prefetched_embed(@account, @status_parser.quoted_object, @json['context'])
     ActivityPub::VerifyQuoteService.new.call(@quote, @quote_approval_uri, fetchable_quoted_uri: @quote_uri, prefetched_quoted_object: embedded_quote, request_id: @options[:request_id], depth: @options[:depth], allow_legacy_quote_approval: @status_parser.legacy_quote?)
+    refetch_quote_later_if_missing!
   rescue Mastodon::RecursionLimitExceededError, Mastodon::UnexpectedResponseError, *Mastodon::HTTP_CONNECTION_ERRORS
+    refetch_quote_later!
+  end
+
+  def refetch_quote_later_if_missing!
+    return if @quote_uri.blank? || @quote.quoted_status_id.present? || @quote.deleted?
+
+    refetch_quote_later!
+  end
+
+  def refetch_quote_later!
     ActivityPub::RefetchAndVerifyQuoteWorker.perform_in(rand(30..600).seconds, @quote.id, @quote_uri, { 'request_id' => @options[:request_id], 'approval_uri' => @quote_approval_uri, 'allow_legacy_quote_approval' => @status_parser.legacy_quote? })
   end
 
