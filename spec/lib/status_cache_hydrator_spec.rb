@@ -381,5 +381,30 @@ RSpec.describe StatusCacheHydrator do
 
       it_behaves_like 'shared behavior'
     end
+
+    context 'when the cached payload is missing a quote' do
+      subject do
+        payload = InlineRenderer.render(status, nil, :status)
+        payload.delete(:quote)
+        Rails.cache.write("fan-out/#{status.id}", payload)
+
+        described_class.new(status).hydrate(account.id)
+      end
+
+      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public, uri: 'https://quoted.example/notes/abc123', url: 'https://quoted.example/notes/abc123') }
+      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), text: '<p>RE: <a href="https://quoted.example/notes/abc123">notes/abc123</a></p><p>Hello</p>') }
+
+      before do
+        Fabricate(:quote, status: status, quoted_status: quoted_status, state: :pending)
+      end
+
+      it 'adds the quote payload and strips the fallback from the hydrated payload' do
+        expect(subject[:quote]).to include(
+          state: 'accepted',
+          quoted_status: be_a(Hash)
+        )
+        expect(subject[:content]).to eq '<p>Hello</p>'
+      end
+    end
   end
 end

@@ -60,7 +60,7 @@ class StatusCacheHydrator
     payload[:filtered]   = mapped_applied_custom_filter(account_id, status)
     # TODO: performance optimization by not loading `Account` twice
     payload[:quote_approval][:current_user] = status.quote_policy_for_account(Account.find_by(id: account_id)) if payload[:quote_approval]
-    payload[:quote] = hydrate_quote_payload(payload[:quote], status.quote, account_id, nested:) if payload[:quote]
+    hydrate_status_quote_payload(payload, status, account_id, nested:) if status.quote
     payload[:content] = status_content_format(status) if payload[:content] && !status.local? && status.quote&.accepted?
 
     if payload[:poll]
@@ -95,6 +95,7 @@ class StatusCacheHydrator
 
     empty_payload.tap do |payload|
       payload.delete(:quoted_status) if nested
+      payload[:state] = quote.state
 
       # TODO: performance improvements
       if quote.accepted?
@@ -115,6 +116,16 @@ class StatusCacheHydrator
       else
         payload[nested ? :quoted_status_id : :quoted_status] = nil
       end
+    end
+  end
+
+  def hydrate_status_quote_payload(payload, status, account_id, nested: false)
+    quote_payload = hydrate_quote_payload(payload[:quote] || {}, status.quote, account_id, nested:)
+
+    if quote_payload
+      payload[:quote] = quote_payload
+    else
+      payload.delete(:quote)
     end
   end
 
