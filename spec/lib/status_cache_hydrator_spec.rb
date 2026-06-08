@@ -72,6 +72,15 @@ RSpec.describe StatusCacheHydrator do
             expect(subject[:quote]).to_not be_nil
             expect(status.quote.reload).to be_accepted
           end
+
+          context 'with a Misskey-style fallback paragraph' do
+            let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public, uri: 'https://quoted.example/notes/abc123', url: 'https://quoted.example/notes/abc123') }
+            let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), text: '<p>RE: <a href="https://quoted.example/notes/abc123">notes/abc123</a></p><p>Hello</p>') }
+
+            it 'strips the fallback from the hydrated payload' do
+              expect(subject[:content]).to eq '<p>Hello</p>'
+            end
+          end
         end
       end
 

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class StatusCacheHydrator
+  include FormattingHelper
+
   def initialize(status)
     @status = status
   end
@@ -59,6 +61,7 @@ class StatusCacheHydrator
     # TODO: performance optimization by not loading `Account` twice
     payload[:quote_approval][:current_user] = status.quote_policy_for_account(Account.find_by(id: account_id)) if payload[:quote_approval]
     payload[:quote] = hydrate_quote_payload(payload[:quote], status.quote, account_id, nested:) if payload[:quote]
+    payload[:content] = status_content_format(status) if payload[:content] && !status.local? && status.quote&.accepted?
 
     if payload[:poll]
       if fresh

@@ -28,8 +28,13 @@ module FormattingHelper
 
   def status_content_format(status)
     quoted_status = status.quote&.quoted_status if status.local?
+    content = html_aware_format(status.text, status.local?, preloaded_accounts: [status.account] + (status.respond_to?(:active_mentions) ? status.active_mentions.map(&:account) : []), quoted_status: quoted_status)
 
-    html_aware_format(status.text, status.local?, preloaded_accounts: [status.account] + (status.respond_to?(:active_mentions) ? status.active_mentions.map(&:account) : []), quoted_status: quoted_status)
+    if !status.local? && status.quote&.accepted? && status.quote.quoted_status.present?
+      strip_remote_quote_fallback(content, status.quote.quoted_status)
+    else
+      content
+    end
   end
 
   def rss_status_content_format(status)
@@ -97,5 +102,22 @@ module FormattingHelper
       end,
       tag.br
     )
+  end
+
+  def strip_remote_quote_fallback(content, quoted_status)
+    quote_urls = [
+      ActivityPub::TagManager.instance.url_for(quoted_status),
+      ActivityPub::TagManager.instance.uri_for(quoted_status),
+    ].compact
+    return content if quote_urls.empty?
+
+    fragment = Nokogiri::HTML5.fragment(content)
+    first_node = fragment.children.find { |node| node.element? || node.text.strip.present? }
+    return content unless first_node&.element? && first_node.name == 'p'
+    return content unless first_node.text.squish.start_with?('RE:')
+    return content unless first_node.css('a[href]').any? { |link| quote_urls.include?(link['href']) }
+
+    first_node.remove
+    fragment.to_html.html_safe # rubocop:disable Rails/OutputSafety
   end
 end
