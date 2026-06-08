@@ -31,4 +31,5 @@
   /search
   /start/(*any)
   /statuses/(*any)
+  /virtual-kemomimi-relay/(*any)
 ).each { |path| get path, to: 'home#index' }
