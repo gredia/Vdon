@@ -46,6 +46,29 @@ RSpec.describe FanOutOnWriteService do
       expect(redis).to have_received(:publish).with('timeline:public:local', anything)
       expect(redis).to have_received(:publish).with('timeline:public:media', anything)
     end
+
+    context 'when status quotes a local account' do
+      let(:quoted_status) { Fabricate(:status, account: bob, visibility: :public) }
+      let(:status) do
+        Fabricate(:status, account: alice, visibility: visibility, text: 'Hello').tap do |status|
+          Fabricate(:quote, status: status, quoted_status: quoted_status, state: :accepted)
+        end
+      end
+
+      it 'notifies the quoted account' do
+        expect(LocalNotificationWorker)
+          .to have_enqueued_sidekiq_job(bob.id, status.quote.id, 'Quote', 'quote')
+      end
+
+      it 'does not notify other local accounts about the quote' do
+        expect(LocalNotificationWorker)
+          .to_not have_enqueued_sidekiq_job(alice.id, status.quote.id, 'Quote', 'quote')
+        expect(LocalNotificationWorker)
+          .to_not have_enqueued_sidekiq_job(tom.id, status.quote.id, 'Quote', 'quote')
+        expect(LocalNotificationWorker)
+          .to_not have_enqueued_sidekiq_job(eve.id, status.quote.id, 'Quote', 'quote')
+      end
+    end
   end
 
   context 'when status is limited' do

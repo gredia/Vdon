@@ -273,6 +273,74 @@ RSpec.describe ActivityPub::VerifyQuoteService do
             .to_not change(quote, :state).from('pending')
         end
       end
+
+      context 'with legacy quote approval enabled' do
+        let(:quote) do
+          Fabricate(:quote, status: status, quoted_status: nil, legacy: true).tap do |quote|
+            quote.update_columns(quoted_status_id: quoted_status.id, quoted_account_id: quoted_account.id)
+            quote.reload
+          end
+        end
+
+        it 'accepts a quote of a public post' do
+          expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
+            .to change(quote, :state).to('accepted')
+        end
+
+        context 'when the quoted post is unlisted' do
+          let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :unlisted) }
+
+          it 'accepts the quote' do
+            expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
+              .to change(quote, :state).to('accepted')
+          end
+        end
+
+        context 'when the quoted post is followers-only' do
+          let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :private) }
+
+          it 'does not accept the quote' do
+            expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
+              .to_not change(quote, :state).from('pending')
+          end
+        end
+
+        context 'when the quoted post is direct' do
+          let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :direct) }
+
+          it 'does not accept the quote' do
+            expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
+              .to_not change(quote, :state).from('pending')
+          end
+        end
+
+        context 'when the quoted post is local' do
+          let(:quoted_account) { Fabricate(:account, domain: nil) }
+
+          it 'accepts the quote' do
+            expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
+              .to change(quote, :state).to('accepted')
+          end
+
+          context 'with a followers-only post' do
+            let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :private) }
+
+            it 'does not accept the quote' do
+              expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
+                .to_not change(quote, :state).from('pending')
+            end
+          end
+        end
+      end
+
+      context 'with a legacy quote but without legacy quote approval enabled' do
+        let(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, legacy: true) }
+
+        it 'does not update the status' do
+          expect { subject.call(quote, approval_uri_arg) }
+            .to_not change(quote, :state).from('pending')
+        end
+      end
     end
   end
 
