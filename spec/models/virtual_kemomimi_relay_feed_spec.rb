@@ -20,6 +20,13 @@ RSpec.describe VirtualKemomimiRelayFeed do
       expect(status_ids).to include(allowed_status.id)
     end
 
+    it 'includes public statuses from local accounts' do
+      local_account = Fabricate(:account, domain: nil)
+      local_status = Fabricate(:status, account: local_account)
+
+      expect(status_ids).to include(local_status.id)
+    end
+
     it 'excludes public statuses from servers not listed by the relay' do
       unlisted_account = Fabricate(:account, domain: 'unlisted.example')
       unlisted_status = Fabricate(:status, account: unlisted_account)
