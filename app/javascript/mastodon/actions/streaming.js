@@ -195,12 +195,18 @@ export const connectPublicStream = ({ onlyMedia, onlyRemote } = {}) =>
 /**
  * @param {Object} options
  * @param {boolean} [options.social]
+ * @param {boolean} [options.onlyMedia]
+ * @param {boolean} [options.showReblogs]
+ * @param {boolean} [options.showReplies]
+ * @param {boolean} [options.showQuotes]
+ * @param {function(object): boolean} [options.accept]
  * @returns {function(): void}
  */
-export const connectVirtualKemomimiRelayStream = ({ social } = {}) =>
-  connectTimelineStream(`virtual_kemomimi_relay${social ? ':social' : ''}`, 'virtual_kemomimi_relay', { social: social ? 'true' : 'false' }, {
+export const connectVirtualKemomimiRelayStream = ({ social, onlyMedia, showReblogs, showReplies, showQuotes, accept } = {}) =>
+  connectTimelineStream(`virtual_kemomimi_relay${social ? ':social' : ''}${onlyMedia ? ':media' : ''}`, 'virtual_kemomimi_relay', { social: social ? 'true' : 'false', only_media: onlyMedia ? 'true' : 'false' }, {
+    accept,
     // @ts-expect-error
-    fillGaps: () => fillVirtualKemomimiRelayTimelineGaps({ social })
+    fillGaps: () => fillVirtualKemomimiRelayTimelineGaps({ social, onlyMedia, showReblogs, showReplies, showQuotes })
   });
 
 /**

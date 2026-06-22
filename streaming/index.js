@@ -1199,13 +1199,13 @@ const startServer = async () => {
       break;
     case 'virtual_kemomimi_relay':
       resolve({
-        channelIds: ['timeline:public:local', 'timeline:public:remote'],
+        channelIds: isTruthy(params.only_media) ? ['timeline:public:local:media', 'timeline:public:remote:media'] : ['timeline:public:local', 'timeline:public:remote'],
         options: { needsFiltering: true, virtualKemomimiRelay: true },
       });
       break;
     case 'virtual_kemomimi_relay:social':
       resolve({
-        channelIds: ['timeline:public:local', 'timeline:public:remote'],
+        channelIds: isTruthy(params.only_media) ? ['timeline:public:local:media', 'timeline:public:remote:media'] : ['timeline:public:local', 'timeline:public:remote'],
         options: { needsFiltering: true, virtualKemomimiRelay: true, includeFollowed: true },
       });
       break;

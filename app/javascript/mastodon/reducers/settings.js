@@ -92,6 +92,16 @@ const initialState = ImmutableMap({
     onlyMedia: false,
   }),
 
+  virtual_kemomimi_relay: ImmutableMap({
+    shows: ImmutableMap({
+      quote: true,
+      reblog: true,
+      reply: true,
+    }),
+
+    onlyMedia: false,
+  }),
+
   community: ImmutableMap({
     regex: ImmutableMap({
       body: '',

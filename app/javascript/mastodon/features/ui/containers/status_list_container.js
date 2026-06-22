@@ -8,8 +8,10 @@ import { scrollTopTimeline, loadPending } from '../../../actions/timelines';
 import StatusList from '../../../components/status_list';
 import { me } from '../../../initial_state';
 
+const settingsKeyForTimeline = type => type.startsWith('virtual_kemomimi_relay') ? 'virtual_kemomimi_relay' : type;
+
 const makeGetStatusIds = (pending = false) => createSelector([
-  (state, { type }) => state.getIn(['settings', type], ImmutableMap()),
+  (state, { type }) => state.getIn(['settings', settingsKeyForTimeline(type)], ImmutableMap()),
   (state, { type }) => state.getIn(['timelines', type, pending ? 'pendingItems' : 'items'], ImmutableList()),
   (state)           => state.get('statuses'),
 ], (columnSettings, statusIds, statuses) => {
