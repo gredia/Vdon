@@ -4,7 +4,7 @@ class Api::V1::Timelines::VirtualKemomimiRelayController < Api::V1::Timelines::B
   before_action -> { doorkeeper_authorize! :read, :'read:statuses' }
   before_action :require_user!
 
-  PERMITTED_PARAMS = %i(limit only_media social).freeze
+  PERMITTED_PARAMS = %i(limit only_media social with_reblogs with_replies with_quotes).freeze
 
   def show
     @statuses = load_statuses
@@ -30,8 +30,15 @@ class Api::V1::Timelines::VirtualKemomimiRelayController < Api::V1::Timelines::B
     VirtualKemomimiRelayFeed.new(
       current_account,
       only_media: truthy_param?(:only_media),
-      include_followed: truthy_param?(:social)
+      include_followed: truthy_param?(:social),
+      with_reblogs: truthy_param_with_default?(:with_reblogs),
+      with_replies: truthy_param_with_default?(:with_replies),
+      with_quotes: truthy_param_with_default?(:with_quotes)
     )
+  end
+
+  def truthy_param_with_default?(key)
+    params.key?(key) ? truthy_param?(key) : true
   end
 
   def next_path

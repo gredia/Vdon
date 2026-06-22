@@ -46,6 +46,29 @@ RSpec.describe VirtualKemomimiRelayFeed do
       expect(status_ids).to_not include(own_private_status.id)
     end
 
+
+    it 'excludes boosts when reblogs are disabled' do
+      original_status = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'))
+      boost = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), reblog_of_id: original_status.id)
+
+      expect(described_class.new(viewer, with_reblogs: false).get(20).map(&:id)).to_not include(boost.id)
+    end
+
+    it 'excludes replies when replies are disabled' do
+      original_status = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'))
+      reply = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), in_reply_to_id: original_status.id, in_reply_to_account_id: original_status.account_id)
+
+      expect(described_class.new(viewer, with_replies: false).get(20).map(&:id)).to_not include(reply.id)
+    end
+
+    it 'excludes quotes when quotes are disabled' do
+      quoted_status = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'))
+      quote_status = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'))
+      Fabricate(:quote, status: quote_status, quoted_status: quoted_status, state: :accepted)
+
+      expect(described_class.new(viewer, with_quotes: false).get(20).map(&:id)).to_not include(quote_status.id)
+    end
+
     context 'with social option' do
       let(:options) { { include_followed: true } }
 

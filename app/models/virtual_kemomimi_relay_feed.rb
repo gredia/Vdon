@@ -9,8 +9,9 @@ class VirtualKemomimiRelayFeed
   def get(limit, max_id = nil, since_id = nil, min_id = nil)
     scope = public_scope
 
-    scope.merge!(without_replies_scope)
-    scope.merge!(without_reblogs_scope)
+    scope.merge!(without_replies_scope) unless with_replies?
+    scope.merge!(without_reblogs_scope) unless with_reblogs?
+    scope.merge!(without_quotes_scope) unless with_quotes?
     scope.merge!(account_filters_scope)
     scope.merge!(media_only_scope) if media_only?
     scope.merge!(language_scope) if account&.chosen_languages.present?
@@ -31,6 +32,18 @@ class VirtualKemomimiRelayFeed
     options[:include_followed]
   end
 
+  def with_reblogs?
+    options.fetch(:with_reblogs, true)
+  end
+
+  def with_replies?
+    options.fetch(:with_replies, true)
+  end
+
+  def with_quotes?
+    options.fetch(:with_quotes, true)
+  end
+
   def public_scope
     Status.public_visibility.joins(:account).merge(Account.without_suspended.without_silenced)
   end
@@ -41,6 +54,10 @@ class VirtualKemomimiRelayFeed
 
   def without_reblogs_scope
     Status.without_reblogs
+  end
+
+  def without_quotes_scope
+    Status.left_outer_joins(:quote).where(quotes: { id: nil })
   end
 
   def media_only_scope
