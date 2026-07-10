@@ -8,6 +8,7 @@ class ActivityPub::ProcessStatusUpdateService < BaseService
   def call(status, activity_json, object_json, request_id: nil)
     raise ArgumentError, 'Status has unsaved changes' if status.changed?
 
+    previously_implicitly_quotable = status.implicit_public_quote_policy?
     @activity_json             = activity_json
     @json                      = object_json
     @status_parser             = ActivityPub::Parser::StatusParser.new(@json, followers_collection: status.account.followers_url, following_collection: status.account.following_url, actor_uri: ActivityPub::TagManager.instance.uri_for(status.account))
@@ -30,6 +31,8 @@ class ActivityPub::ProcessStatusUpdateService < BaseService
     else
       handle_implicit_update!
     end
+
+    ActivityPub::AcceptImplicitQuoteWorker.enqueue_for(@status) if !previously_implicitly_quotable && @status.implicit_public_quote_policy?
 
     @status
   end
