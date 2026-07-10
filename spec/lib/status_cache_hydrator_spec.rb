@@ -68,17 +68,18 @@ RSpec.describe StatusCacheHydrator do
         context 'when the quoted post has an implicit public quote policy' do
           let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public) }
 
-          it 'accepts and renders the quote' do
+          it 'renders the pending quote without changing it' do
             expect(subject[:quote]).to_not be_nil
-            expect(status.quote.reload).to be_accepted
+            expect(subject[:quote][:state]).to eq 'pending'
+            expect(status.quote.reload).to be_pending
           end
 
           context 'with a Misskey-style fallback paragraph' do
             let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public, uri: 'https://quoted.example/notes/abc123', url: 'https://quoted.example/notes/abc123') }
             let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), text: '<p>RE: <a href="https://quoted.example/notes/abc123">notes/abc123</a></p><p>Hello</p>') }
 
-            it 'strips the fallback from the hydrated payload' do
-              expect(subject[:content]).to eq '<p>Hello</p>'
+            it 'keeps the fallback in the hydrated payload' do
+              expect(subject[:content]).to include 'RE:'
             end
           end
         end
@@ -398,12 +399,13 @@ RSpec.describe StatusCacheHydrator do
         Fabricate(:quote, status: status, quoted_status: quoted_status, state: :pending)
       end
 
-      it 'adds the quote payload and strips the fallback from the hydrated payload' do
+      it 'adds the pending quote payload and keeps the fallback in the hydrated payload' do
         expect(subject[:quote]).to include(
-          state: 'accepted',
-          quoted_status: be_a(Hash)
+          state: 'pending',
+          quoted_status: nil
         )
-        expect(subject[:content]).to eq '<p>Hello</p>'
+        expect(subject[:content]).to include 'RE:'
+        expect(status.quote.reload).to be_pending
       end
     end
   end

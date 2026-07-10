@@ -90,7 +90,6 @@ class StatusCacheHydrator
   end
 
   def hydrate_quote_payload(empty_payload, quote, account_id, nested: false)
-    quote&.accept_implicit_public_quote!
     return unless quote&.acceptable?
 
     empty_payload.tap do |payload|
