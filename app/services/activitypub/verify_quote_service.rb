@@ -15,6 +15,8 @@ class ActivityPub::VerifyQuoteService < BaseService
     @fetching_error = nil
 
     fetch_quoted_post_if_needed!(fetchable_quoted_uri, prefetched_body: prefetched_quoted_object)
+    raise @fetching_error if @quote.quoted_status.nil? && @fetching_error
+
     return if fast_track_approval! || legacy_quote_approval!
     return if quote.quoted_account&.local?
     return if @approval_uri.blank?
@@ -27,9 +29,6 @@ class ActivityPub::VerifyQuoteService < BaseService
 
     # Opportunistically import embedded posts if needed
     return if import_quoted_post_if_needed!(fetchable_quoted_uri) && fast_track_approval!
-
-    # Raise an error if we failed to fetch the status
-    raise @fetching_error if @quote.status.nil? && @fetching_error
 
     return unless matching_quoted_post? && matching_quoted_author?
 

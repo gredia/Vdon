@@ -339,7 +339,7 @@ class ActivityPub::ProcessStatusUpdateService < BaseService
     embedded_quote = safe_prefetched_embed(@account, @status_parser.quoted_object, @activity_json['context'])
     ActivityPub::VerifyQuoteService.new.call(quote, approval_uri, fetchable_quoted_uri: quote_uri, prefetched_quoted_object: embedded_quote, request_id: @request_id, allow_legacy_quote_approval: @status_parser.legacy_quote?)
     refetch_quote_later_if_missing!(quote, approval_uri, quote_uri)
-  rescue Mastodon::UnexpectedResponseError, *Mastodon::HTTP_CONNECTION_ERRORS
+  rescue Mastodon::RecursionLimitExceededError, Mastodon::UnexpectedResponseError, *Mastodon::HTTP_CONNECTION_ERRORS
     refetch_quote_later!(quote, approval_uri, quote_uri)
   end
 

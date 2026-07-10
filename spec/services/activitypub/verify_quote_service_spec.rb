@@ -380,4 +380,20 @@ RSpec.describe ActivityPub::VerifyQuoteService do
 
     it_behaves_like 'common behavior'
   end
+
+  context 'when fetching a quoted post without an approval URI fails' do
+    let(:quote) { Fabricate(:quote, status: status, quoted_status: nil, legacy: true) }
+    let(:quoted_uri) { 'https://b.example.com/notes/1234' }
+    let(:fetch_service) { instance_double(ActivityPub::FetchRemoteStatusService) }
+
+    before do
+      allow(ActivityPub::FetchRemoteStatusService).to receive(:new).and_return(fetch_service)
+      allow(fetch_service).to receive(:call).and_raise(HTTP::ConnectionError)
+    end
+
+    it 'raises the original error so the caller can retry it' do
+      expect { subject.call(quote, nil, fetchable_quoted_uri: quoted_uri, allow_legacy_quote_approval: true) }
+        .to raise_error(HTTP::ConnectionError)
+    end
+  end
 end

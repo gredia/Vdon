@@ -35,9 +35,19 @@ RSpec.describe FormattingHelper do
         let(:legacy) { true }
         let(:quoted_status) { nil }
 
-        it 'strips the fallback paragraph' do
-          expect(subject).to eq '<p>Hello</p>'
+        it 'keeps the fallback link while the quoted post is unavailable' do
+          expect(subject).to include('RE:', 'https://quoted.example/notes/abc123')
         end
+      end
+    end
+
+    context 'with an accepted Misskey-style quote fallback' do
+      let(:quote_state) { :accepted }
+      let(:legacy) { true }
+      let(:text) { 'Hello<br><br><span class="quote-inline">RE: <a href="https://quoted.example/notes/abc123">https://quoted.example/notes/abc123</a></span>' }
+
+      it 'strips the matching trailing fallback and its preceding breaks' do
+        expect(subject).to eq 'Hello'
       end
     end
 
@@ -52,8 +62,8 @@ RSpec.describe FormattingHelper do
       context 'when it is a legacy quote' do
         let(:legacy) { true }
 
-        it 'strips the fallback paragraph' do
-          expect(subject).to eq '<p>Hello</p>'
+        it 'keeps the unrelated paragraph' do
+          expect(subject).to include 'RE:'
         end
       end
     end

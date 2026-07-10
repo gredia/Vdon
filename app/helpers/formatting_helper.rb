@@ -105,13 +105,9 @@ module FormattingHelper
   end
 
   def strip_remote_quote_fallback(content, quote)
-    if quote.legacy?
-      strip_legacy_remote_quote_fallback(content)
-    elsif quote.accepted? && quote.quoted_status.present?
-      strip_matching_remote_quote_fallback(content, quote.quoted_status)
-    else
-      content
-    end
+    return content unless quote.accepted? && quote.quoted_status.present?
+
+    strip_matching_remote_quote_fallback(content, quote.quoted_status)
   end
 
   def strip_matching_remote_quote_fallback(content, quoted_status)
@@ -122,23 +118,31 @@ module FormattingHelper
     return content if quote_urls.empty?
 
     fragment = Nokogiri::HTML5.fragment(content)
-    first_node = fragment.children.find { |node| node.element? || node.text.strip.present? }
-    return content unless first_node&.element? && first_node.name == 'p'
-    return content unless first_node.text.squish.start_with?('RE:')
-    return content unless first_node.css('a[href]').any? { |link| quote_urls.include?(link['href']) }
+    quote_fallback = remote_quote_fallback(fragment, quote_urls)
+    return content if quote_fallback.nil?
 
-    first_node.remove
+    remove_preceding_quote_breaks(quote_fallback)
+    quote_fallback.remove
     fragment.to_html.html_safe # rubocop:disable Rails/OutputSafety
   end
 
-  def strip_legacy_remote_quote_fallback(content)
-    fragment = Nokogiri::HTML5.fragment(content)
-    first_node = fragment.children.find { |node| node.element? || node.text.strip.present? }
-    return content unless first_node&.element? && first_node.name == 'p'
-    return content unless first_node.text.squish.start_with?('RE:')
-    return content unless first_node.css('a[href]').any?
+  def remote_quote_fallback(fragment, quote_urls)
+    edge_nodes = fragment.children.select { |node| node.element? || node.text.strip.present? }.then { |nodes| [nodes.first, nodes.last] }
+    candidates = fragment.css('.quote-inline').to_a + edge_nodes
 
-    first_node.remove
-    fragment.to_html.html_safe # rubocop:disable Rails/OutputSafety
+    candidates.compact.uniq.find do |node|
+      node.element? && node.text.squish.start_with?('RE:') && node.css('a[href]').any? { |link| quote_urls.include?(link['href']) }
+    end
+  end
+
+  def remove_preceding_quote_breaks(quote_fallback)
+    return unless quote_fallback.name == 'span'
+
+    2.times do
+      previous_sibling = quote_fallback.previous_sibling
+      break unless previous_sibling&.element? && previous_sibling.name == 'br'
+
+      previous_sibling.remove
+    end
   end
 end

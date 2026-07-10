@@ -46,7 +46,7 @@ RSpec.describe ActivityPub::RefetchAndVerifyQuoteWorker do
 
       it 'raises so Sidekiq retries the fetch' do
         expect { worker.perform(quote.id, url) }
-          .to raise_error(described_class::MissingQuotedStatusError)
+          .to raise_error(described_class::MissingQuotedStatusError, /#{Regexp.escape(url)}.*quote #{quote.id}/)
       end
     end
 
