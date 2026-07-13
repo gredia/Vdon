@@ -147,6 +147,57 @@ RSpec.describe ActivityPub::Parser::StatusParser do
       end
     end
 
+    context 'with an interaction policy that omits canQuote' do
+      let(:object_json) do
+        {
+          id: [ActivityPub::TagManager.instance.uri_for(sender), 'post1'].join('/'),
+          type: 'Note',
+          to: 'https://www.w3.org/ns/activitystreams#Public',
+          interactionPolicy: {},
+          content: 'bleh',
+          published: 1.hour.ago.utc.iso8601,
+        }
+      end
+
+      it 'returns the implicit public quote policy' do
+        expect(subject).to eq(Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)
+      end
+    end
+
+    context 'with an explicitly empty canQuote policy' do
+      let(:object_json) do
+        {
+          id: [ActivityPub::TagManager.instance.uri_for(sender), 'post1'].join('/'),
+          type: 'Note',
+          to: 'https://www.w3.org/ns/activitystreams#Public',
+          interactionPolicy: { canQuote: {} },
+          content: 'bleh',
+          published: 1.hour.ago.utc.iso8601,
+        }
+      end
+
+      it 'marks the policy as an explicit denial' do
+        expect(subject).to eq Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG
+      end
+    end
+
+    context 'with a malformed canQuote policy' do
+      let(:object_json) do
+        {
+          id: [ActivityPub::TagManager.instance.uri_for(sender), 'post1'].join('/'),
+          type: 'Note',
+          to: 'https://www.w3.org/ns/activitystreams#Public',
+          interactionPolicy: { canQuote: 'invalid' },
+          content: 'bleh',
+          published: 1.hour.ago.utc.iso8601,
+        }
+      end
+
+      it 'marks the policy as an explicit denial' do
+        expect(subject).to eq Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG
+      end
+    end
+
     context 'when nobody is allowed to quote' do
       let(:object_json) do
         {

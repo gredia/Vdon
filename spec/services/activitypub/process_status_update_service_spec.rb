@@ -55,27 +55,37 @@ RSpec.describe ActivityPub::ProcessStatusUpdateService do
         Fabricate(:status, text: 'Hello world', uri: 'https://example.com/statuses/1234', account: Fabricate(:account, domain: 'example.com'), quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG)
       end
 
-      before do
-        allow(ActivityPub::AcceptImplicitQuoteWorker).to receive(:enqueue_for)
+      let(:payload) do
+        super().merge(to: 'https://www.w3.org/ns/activitystreams#Public')
       end
 
-      it 'enqueues pending quotes for re-evaluation' do
+      it 'enqueues asynchronous quote re-evaluation' do
         subject.call(status, json, json)
 
-        expect(ActivityPub::AcceptImplicitQuoteWorker)
-          .to have_received(:enqueue_for).with(status)
+        expect(ActivityPub::AcceptImplicitQuotesWorker)
+          .to have_enqueued_sidekiq_job(status.id)
       end
     end
 
     context 'when the status remains implicitly quotable' do
-      before do
-        allow(ActivityPub::AcceptImplicitQuoteWorker).to receive(:enqueue_for)
+      let!(:status) do
+        Fabricate(
+          :status,
+          text: 'Hello world',
+          uri: 'https://example.com/statuses/1234',
+          account: Fabricate(:account, domain: 'example.com'),
+          quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16
+        )
+      end
+
+      let(:payload) do
+        super().merge(to: 'https://www.w3.org/ns/activitystreams#Public')
       end
 
       it 'does not enqueue redundant re-evaluation' do
         subject.call(status, json, json)
 
-        expect(ActivityPub::AcceptImplicitQuoteWorker).to_not have_received(:enqueue_for)
+        expect(ActivityPub::AcceptImplicitQuotesWorker.jobs).to be_empty
       end
     end
 

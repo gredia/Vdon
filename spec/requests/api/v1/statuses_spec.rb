@@ -377,8 +377,8 @@ RSpec.describe '/api/v1/statuses' do
         end
       end
 
-      context 'with a quote of a remote public post without an explicit quote policy' do
-        let!(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: 0) }
+      context 'with a quote of a remote public post with a recorded implicit quote policy' do
+        let!(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
         let(:params) do
           {
             status: 'Hello, this is a quote',
@@ -396,8 +396,8 @@ RSpec.describe '/api/v1/statuses' do
         end
       end
 
-      context 'with a quote of a remote unlisted post without an explicit quote policy' do
-        let!(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :unlisted, quote_approval_policy: 0) }
+      context 'with a quote of a remote unlisted post with a recorded implicit quote policy' do
+        let!(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :unlisted, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
         let(:params) do
           {
             status: 'Hello, this is a quote',
@@ -412,6 +412,24 @@ RSpec.describe '/api/v1/statuses' do
           expect(response.parsed_body[:quote]).to be_present
           expect(Status.find(response.parsed_body[:id]).quote).to be_accepted
           expect(ActivityPub::QuoteRequestWorker).to_not have_enqueued_sidekiq_job
+        end
+      end
+
+      context 'with a quote of a historical remote public post whose quote policy is unknown' do
+        let!(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: 0) }
+        let(:params) do
+          {
+            status: 'Hello, this is a quote',
+            quoted_status_id: quoted_status.id,
+          }
+        end
+
+        it 'returns an error without creating or changing a post', :aggregate_failures do
+          expect { subject }
+            .to not_change(user.account.statuses, :count)
+            .and(not_change { quoted_status.reload.quote_approval_policy })
+
+          expect(response).to have_http_status(404)
         end
       end
 

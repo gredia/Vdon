@@ -313,16 +313,16 @@ RSpec.describe PostStatusService do
       .to enqueue_sidekiq_job(ActivityPub::QuoteRequestWorker)
   end
 
-  it 'accepts a quote of a remote public post without an explicit quote policy' do
+  it 'keeps a quote of a historical remote post with an unknown quote policy pending' do
     account = Fabricate(:account)
     quoted_status = Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: 0)
 
     status = subject.call(account, text: 'test', quoted_status: quoted_status)
 
     expect(status.quote)
-      .to be_accepted
+      .to be_pending
       .and have_attributes(quoted_status: quoted_status)
-    expect(ActivityPub::QuoteRequestWorker).to_not have_enqueued_sidekiq_job
+    expect(ActivityPub::QuoteRequestWorker).to have_enqueued_sidekiq_job(status.quote.id)
   end
 
   it 'accepts a quote of a remote public post with an implicit quote policy' do

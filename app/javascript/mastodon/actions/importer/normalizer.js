@@ -27,17 +27,6 @@ function stripQuoteFallback(text) {
   return wrapper.innerHTML;
 }
 
-function sameQuote(normalOldStatus, normalStatus) {
-  const oldQuote = normalOldStatus?.get('quote');
-  const newQuote = normalStatus.quote;
-
-  if (!oldQuote && !newQuote) {
-    return true;
-  }
-
-  return oldQuote?.get('state') === newQuote?.state && oldQuote?.get('quoted_status') === newQuote?.quoted_status;
-}
-
 export function normalizeStatus(status, normalOldStatus, { bogusQuotePolicy = false }) {
   const normalStatus   = { ...status };
 
@@ -50,10 +39,10 @@ export function normalizeStatus(status, normalOldStatus, { bogusQuotePolicy = fa
     normalStatus.reblog = status.reblog.id;
   }
 
-  if (status.quote) {
+  if (status.quote?.quoted_status ?? status.quote?.quoted_status_id) {
     normalStatus.quote = {
       ...status.quote,
-      quoted_status: status.quote.quoted_status?.id ?? status.quote?.quoted_status_id ?? null,
+      quoted_status: status.quote.quoted_status?.id ?? status.quote?.quoted_status_id,
     };
   }
 
@@ -79,7 +68,7 @@ export function normalizeStatus(status, normalOldStatus, { bogusQuotePolicy = fa
   // Only calculate these values when status first encountered and
   // when the underlying values change. Otherwise keep the ones
   // already in the reducer
-  if (normalOldStatus && normalOldStatus.get('content') === normalStatus.content && normalOldStatus.get('spoiler_text') === normalStatus.spoiler_text && sameQuote(normalOldStatus, normalStatus)) {
+  if (normalOldStatus && normalOldStatus.get('content') === normalStatus.content && normalOldStatus.get('spoiler_text') === normalStatus.spoiler_text) {
     normalStatus.search_index = normalOldStatus.get('search_index');
     normalStatus.contentHtml = normalOldStatus.get('contentHtml');
     normalStatus.spoilerHtml = normalOldStatus.get('spoilerHtml');

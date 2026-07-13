@@ -32,7 +32,7 @@ class ActivityPub::ProcessStatusUpdateService < BaseService
       handle_implicit_update!
     end
 
-    ActivityPub::AcceptImplicitQuoteWorker.enqueue_for(@status) if !previously_implicitly_quotable && @status.implicit_public_quote_policy?
+    ActivityPub::AcceptImplicitQuotesWorker.perform_async(@status.id) if !previously_implicitly_quotable && @status.implicit_public_quote_policy?
 
     @status
   end
@@ -341,19 +341,13 @@ class ActivityPub::ProcessStatusUpdateService < BaseService
   def fetch_and_verify_quote!(quote, approval_uri, quote_uri)
     embedded_quote = safe_prefetched_embed(@account, @status_parser.quoted_object, @activity_json['context'])
     ActivityPub::VerifyQuoteService.new.call(quote, approval_uri, fetchable_quoted_uri: quote_uri, prefetched_quoted_object: embedded_quote, request_id: @request_id, allow_legacy_quote_approval: @status_parser.legacy_quote?)
-    refetch_quote_later_if_missing!(quote, approval_uri, quote_uri)
+    ActivityPub::QuoteRefetchScheduler.schedule_if_missing(quote, quote_uri, **quote_refetch_options(approval_uri))
   rescue Mastodon::RecursionLimitExceededError, Mastodon::UnexpectedResponseError, *Mastodon::HTTP_CONNECTION_ERRORS
-    refetch_quote_later!(quote, approval_uri, quote_uri)
+    ActivityPub::QuoteRefetchScheduler.schedule(quote, quote_uri, **quote_refetch_options(approval_uri))
   end
 
-  def refetch_quote_later_if_missing!(quote, approval_uri, quote_uri)
-    return if quote_uri.blank? || quote.quoted_status_id.present? || quote.deleted?
-
-    refetch_quote_later!(quote, approval_uri, quote_uri)
-  end
-
-  def refetch_quote_later!(quote, approval_uri, quote_uri)
-    ActivityPub::RefetchAndVerifyQuoteWorker.perform_in(rand(30..600).seconds, quote.id, quote_uri, { 'request_id' => @request_id, 'approval_uri' => approval_uri, 'allow_legacy_quote_approval' => @status_parser.legacy_quote? })
+  def quote_refetch_options(approval_uri)
+    { request_id: @request_id, approval_uri:, allow_legacy_quote_approval: @status_parser.legacy_quote? }
   end
 
   def update_counts!

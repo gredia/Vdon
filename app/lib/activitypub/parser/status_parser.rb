@@ -125,8 +125,11 @@ class ActivityPub::Parser::StatusParser
 
   def quote_policy
     flags = 0
-    policy = @object.dig('interactionPolicy', 'canQuote')
-    return implicit_quote_policy if policy.blank?
+    interaction_policy = @object['interactionPolicy']
+    return implicit_quote_policy if interaction_policy.nil? || (interaction_policy.is_a?(Hash) && !interaction_policy.key?('canQuote'))
+
+    policy = interaction_policy['canQuote'] if interaction_policy.is_a?(Hash)
+    return mark_explicit_quote_policy(flags) unless policy.is_a?(Hash)
 
     flags |= quote_subpolicy(policy['automaticApproval'])
     flags <<= 16

@@ -31,7 +31,7 @@ module FormattingHelper
     content = html_aware_format(status.text, status.local?, preloaded_accounts: [status.account] + (status.respond_to?(:active_mentions) ? status.active_mentions.map(&:account) : []), quoted_status: quoted_status)
 
     if !status.local? && status.quote.present?
-      strip_remote_quote_fallback(content, status.quote)
+      ActivityPub::QuoteFallback.remove(content, status.quote)
     else
       content
     end
@@ -102,47 +102,5 @@ module FormattingHelper
       end,
       tag.br
     )
-  end
-
-  def strip_remote_quote_fallback(content, quote)
-    return content unless quote.accepted? && quote.quoted_status.present?
-
-    strip_matching_remote_quote_fallback(content, quote.quoted_status)
-  end
-
-  def strip_matching_remote_quote_fallback(content, quoted_status)
-    quote_urls = [
-      ActivityPub::TagManager.instance.url_for(quoted_status),
-      ActivityPub::TagManager.instance.uri_for(quoted_status),
-    ].compact
-    return content if quote_urls.empty?
-
-    fragment = Nokogiri::HTML5.fragment(content)
-    quote_fallback = remote_quote_fallback(fragment, quote_urls)
-    return content if quote_fallback.nil?
-
-    remove_preceding_quote_breaks(quote_fallback)
-    quote_fallback.remove
-    fragment.to_html.html_safe # rubocop:disable Rails/OutputSafety
-  end
-
-  def remote_quote_fallback(fragment, quote_urls)
-    edge_nodes = fragment.children.select { |node| node.element? || node.text.strip.present? }.then { |nodes| [nodes.first, nodes.last] }
-    candidates = fragment.css('.quote-inline').to_a + edge_nodes
-
-    candidates.compact.uniq.find do |node|
-      node.element? && node.text.squish.start_with?('RE:') && node.css('a[href]').any? { |link| quote_urls.include?(link['href']) }
-    end
-  end
-
-  def remove_preceding_quote_breaks(quote_fallback)
-    return unless quote_fallback.name == 'span'
-
-    2.times do
-      previous_sibling = quote_fallback.previous_sibling
-      break unless previous_sibling&.element? && previous_sibling.name == 'br'
-
-      previous_sibling.remove
-    end
   end
 end
