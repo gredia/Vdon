@@ -15,7 +15,7 @@ RSpec.describe Quote do
     context 'with a pending legacy quote' do
       let(:legacy) { true }
 
-      it { is_expected.to be true }
+      it { is_expected.to be false }
     end
 
     context 'with a rejected legacy quote' do
@@ -34,12 +34,21 @@ RSpec.describe Quote do
     let(:quoted_status) { Fabricate(:status, account: account, visibility: visibility, quote_approval_policy: quote_approval_policy) }
     let(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, state: state) }
     let(:visibility) { :public }
-    let(:quote_approval_policy) { 0 }
+    let(:quote_approval_policy) { Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16 }
     let(:state) { :pending }
 
-    it 'accepts a pending quote of a remote public post without an explicit quote policy' do
+    it 'accepts a pending quote of a remote public post with a recorded implicit policy' do
       expect { accept_implicit_public_quote }
         .to change { quote.reload.state }.from('pending').to('accepted')
+    end
+
+    context 'when the quoted post has an unknown historical quote policy' do
+      let(:quote_approval_policy) { 0 }
+
+      it 'does not accept the quote' do
+        expect { accept_implicit_public_quote }
+          .to_not change { quote.reload.state }.from('pending')
+      end
     end
 
     context 'when the quoted post has an explicit quote policy' do

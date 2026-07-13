@@ -62,8 +62,8 @@ RSpec.describe ActivityPub::NoteSerializer do
         .to include('class="quote-inline"')
     end
 
-    context 'when quoting a remote post without an explicit quote policy' do
-      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, uri: 'https://misskey.example/notes/abc123', url: 'https://misskey.example/notes/abc123') }
+    context 'when quoting a remote post with a recorded implicit quote policy' do
+      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, uri: 'https://misskey.example/notes/abc123', url: 'https://misskey.example/notes/abc123', quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
 
       it 'makes the fallback link visible for servers that do not accept the quote' do
         expect(subject['content'])

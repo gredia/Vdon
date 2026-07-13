@@ -82,8 +82,19 @@ RSpec.describe REST::StatusSerializer do
       end
     end
 
-    context 'without an explicit quote policy' do
+    context 'with a historical unknown quote policy' do
       let(:status) { Fabricate(:status, account: bob, visibility: :public, quote_approval_policy: 0) }
+
+      it 'serializes the quote approval as denied for the current user' do
+        expect(subject['quote_approval'])
+          .to include(
+            'current_user' => 'denied'
+          )
+      end
+    end
+
+    context 'with a recorded implicit quote policy' do
+      let(:status) { Fabricate(:status, account: bob, visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
 
       it 'serializes the quote approval as automatic for the current user' do
         expect(subject['quote_approval'])

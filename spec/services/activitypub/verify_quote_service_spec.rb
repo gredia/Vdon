@@ -150,6 +150,35 @@ RSpec.describe ActivityPub::VerifyQuoteService do
         end
       end
 
+      context 'with a valid activity containing an inlined post after fetching the post raises a connection error' do
+        let(:quoted_status) { nil }
+
+        let(:approval_interaction_target) do
+          {
+            type: 'Note',
+            id: 'https://b.example.com/unknown-quoted',
+            to: 'https://www.w3.org/ns/activitystreams#Public',
+            attributedTo: ActivityPub::TagManager.instance.uri_for(quoted_account),
+            content: 'previously unknown post',
+          }
+        end
+
+        let(:failing_fetch_service) { instance_double(ActivityPub::FetchRemoteStatusService) }
+        let(:embedded_fetch_service) { ActivityPub::FetchRemoteStatusService.new }
+
+        before do
+          allow(failing_fetch_service).to receive(:call).and_raise(HTTP::ConnectionError)
+          allow(ActivityPub::FetchRemoteStatusService).to receive(:new).and_return(failing_fetch_service, embedded_fetch_service)
+        end
+
+        it 'continues through the approval object and accepts the inlined post' do
+          expect { subject.call(quote, approval_uri_arg, fetchable_quoted_uri: 'https://b.example.com/unknown-quoted') }
+            .to change(quote, :state).to('accepted')
+
+          expect(quote.reload.quoted_status.content).to eq 'previously unknown post'
+        end
+      end
+
       context 'with a valid activity for a post that cannot be fetched and is inlined from an untrusted source' do
         let(:quoted_status) { nil }
 
@@ -338,7 +367,7 @@ RSpec.describe ActivityPub::VerifyQuoteService do
       end
 
       context 'with an implicit quote policy on the quoted post' do
-        let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :public) }
+        let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
 
         it 'accepts the quote without fetching an approval' do
           expect { subject.call(quote, approval_uri_arg) }
@@ -379,5 +408,21 @@ RSpec.describe ActivityPub::VerifyQuoteService do
     let(:approval_uri_record) { approval_uri }
 
     it_behaves_like 'common behavior'
+  end
+
+  context 'when fetching a quoted post without an approval URI fails' do
+    let(:quote) { Fabricate(:quote, status: status, quoted_status: nil, legacy: true) }
+    let(:quoted_uri) { 'https://b.example.com/notes/1234' }
+    let(:fetch_service) { instance_double(ActivityPub::FetchRemoteStatusService) }
+
+    before do
+      allow(ActivityPub::FetchRemoteStatusService).to receive(:new).and_return(fetch_service)
+      allow(fetch_service).to receive(:call).and_raise(HTTP::ConnectionError)
+    end
+
+    it 'raises the original error so the caller can retry it' do
+      expect { subject.call(quote, nil, fetchable_quoted_uri: quoted_uri, allow_legacy_quote_approval: true) }
+        .to raise_error(HTTP::ConnectionError)
+    end
   end
 end

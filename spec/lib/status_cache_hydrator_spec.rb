@@ -54,9 +54,10 @@ RSpec.describe StatusCacheHydrator do
 
       context 'when handling an unapproved quote' do
         let(:quoted_status) { Fabricate(:status) }
+        let(:legacy) { false }
 
         before do
-          Fabricate(:quote, status: status, quoted_status: quoted_status, state: :pending)
+          Fabricate(:quote, status: status, quoted_status: quoted_status, state: :pending, legacy: legacy)
         end
 
         it 'renders the same attributes as full render' do
@@ -65,21 +66,16 @@ RSpec.describe StatusCacheHydrator do
           expect(subject[:quote_status]).to be_nil
         end
 
-        context 'when the quoted post has an implicit public quote policy' do
-          let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public) }
+        context 'when the quote is a legacy pending quote' do
+          let(:legacy) { true }
+          let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), uri: 'https://quoted.example/notes/abc123') }
+          let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), text: '<p>Hello</p><p>RE: <a href="https://quoted.example/notes/abc123">notes/abc123</a></p>') }
 
-          it 'accepts and renders the quote' do
-            expect(subject[:quote]).to_not be_nil
-            expect(status.quote.reload).to be_accepted
-          end
-
-          context 'with a Misskey-style fallback paragraph' do
-            let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public, uri: 'https://quoted.example/notes/abc123', url: 'https://quoted.example/notes/abc123') }
-            let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), text: '<p>RE: <a href="https://quoted.example/notes/abc123">notes/abc123</a></p><p>Hello</p>') }
-
-            it 'strips the fallback from the hydrated payload' do
-              expect(subject[:content]).to eq '<p>Hello</p>'
-            end
+          it 'keeps the fallback and omits the native quote payload' do
+            expect(subject).to eql(compare_to_hash)
+            expect(subject[:quote]).to be_nil
+            expect(subject[:content]).to include 'RE:'
+            expect(status.quote.reload).to be_pending
           end
         end
       end
@@ -380,31 +376,6 @@ RSpec.describe StatusCacheHydrator do
       end
 
       it_behaves_like 'shared behavior'
-    end
-
-    context 'when the cached payload is missing a quote' do
-      subject do
-        payload = InlineRenderer.render(status, nil, :status)
-        payload.delete(:quote)
-        Rails.cache.write("fan-out/#{status.id}", payload)
-
-        described_class.new(status).hydrate(account.id)
-      end
-
-      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public, uri: 'https://quoted.example/notes/abc123', url: 'https://quoted.example/notes/abc123') }
-      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), text: '<p>RE: <a href="https://quoted.example/notes/abc123">notes/abc123</a></p><p>Hello</p>') }
-
-      before do
-        Fabricate(:quote, status: status, quoted_status: quoted_status, state: :pending)
-      end
-
-      it 'adds the quote payload and strips the fallback from the hydrated payload' do
-        expect(subject[:quote]).to include(
-          state: 'accepted',
-          quoted_status: be_a(Hash)
-        )
-        expect(subject[:content]).to eq '<p>Hello</p>'
-      end
     end
   end
 end

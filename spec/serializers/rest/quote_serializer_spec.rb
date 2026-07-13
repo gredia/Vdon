@@ -27,15 +27,15 @@ RSpec.describe REST::QuoteSerializer do
     end
 
     context 'when the quoted post has an implicit public quote policy' do
-      let(:quote) { Fabricate(:quote, status: Fabricate(:status, account: Fabricate(:account)), quoted_status: Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public)) }
+      let(:quote) { Fabricate(:quote, status: Fabricate(:status, account: Fabricate(:account)), quoted_status: Fabricate(:status, account: Fabricate(:account, domain: 'quoted.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)) }
 
-      it 'accepts and returns the quoted status' do
+      it 'does not change the quote while serializing it' do
         expect(subject.deep_symbolize_keys)
           .to include(
-            quoted_status: be_a(Hash),
-            state: 'accepted'
+            quoted_status: nil,
+            state: 'pending'
           )
-        expect(quote.reload).to be_accepted
+        expect(quote.reload).to be_pending
       end
     end
   end

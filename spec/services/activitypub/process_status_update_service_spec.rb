@@ -50,6 +50,45 @@ RSpec.describe ActivityPub::ProcessStatusUpdateService do
       expect(MentionResolveWorker).to have_enqueued_sidekiq_job(status.id, bogus_mention, anything)
     end
 
+    context 'when the status becomes implicitly quotable' do
+      let!(:status) do
+        Fabricate(:status, text: 'Hello world', uri: 'https://example.com/statuses/1234', account: Fabricate(:account, domain: 'example.com'), quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG)
+      end
+
+      let(:payload) do
+        super().merge(to: 'https://www.w3.org/ns/activitystreams#Public')
+      end
+
+      it 'enqueues asynchronous quote re-evaluation' do
+        subject.call(status, json, json)
+
+        expect(ActivityPub::AcceptImplicitQuotesWorker)
+          .to have_enqueued_sidekiq_job(status.id)
+      end
+    end
+
+    context 'when the status remains implicitly quotable' do
+      let!(:status) do
+        Fabricate(
+          :status,
+          text: 'Hello world',
+          uri: 'https://example.com/statuses/1234',
+          account: Fabricate(:account, domain: 'example.com'),
+          quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16
+        )
+      end
+
+      let(:payload) do
+        super().merge(to: 'https://www.w3.org/ns/activitystreams#Public')
+      end
+
+      it 'does not enqueue redundant re-evaluation' do
+        subject.call(status, json, json)
+
+        expect(ActivityPub::AcceptImplicitQuotesWorker.jobs).to be_empty
+      end
+    end
+
     context 'when the changes are only in sanitized-out HTML' do
       let!(:status) { Fabricate(:status, text: '<p>Hello world <a href="https://joinmastodon.org" rel="nofollow">joinmastodon.org</a></p>', account: Fabricate(:account, domain: 'example.com')) }
 

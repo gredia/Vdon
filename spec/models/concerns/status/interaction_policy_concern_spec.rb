@@ -55,11 +55,15 @@ RSpec.describe Status::InteractionPolicyConcern do
       end
     end
 
-    context 'with a remote public post without an explicit quote policy' do
+    context 'with a historical remote public post whose quote policy is unknown' do
       let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: 0) }
 
-      it 'returns :automatic' do
-        expect(status.quote_policy_for_account(account)).to eq :automatic
+      it 'returns :denied' do
+        expect(status.quote_policy_for_account(account)).to eq :denied
+      end
+
+      it 'requires a quote request' do
+        expect(status).to be_quote_request_needed
       end
     end
 
@@ -75,11 +79,11 @@ RSpec.describe Status::InteractionPolicyConcern do
       end
     end
 
-    context 'with a remote unlisted post without an explicit quote policy' do
+    context 'with a historical remote unlisted post whose quote policy is unknown' do
       let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :unlisted, quote_approval_policy: 0) }
 
-      it 'returns :automatic' do
-        expect(status.quote_policy_for_account(account)).to eq :automatic
+      it 'returns :denied' do
+        expect(status.quote_policy_for_account(account)).to eq :denied
       end
     end
 
