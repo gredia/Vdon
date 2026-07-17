@@ -46,7 +46,6 @@ RSpec.describe VirtualKemomimiRelayFeed do
       expect(status_ids).to_not include(own_private_status.id)
     end
 
-
     it 'excludes boosts when reblogs are disabled' do
       original_status = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'))
       boost = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), reblog_of_id: original_status.id)

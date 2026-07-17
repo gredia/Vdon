@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import querystring from 'node:querystring';
 import url from 'node:url';
 
 import cors from 'cors';
@@ -17,11 +18,10 @@ import { logger, httpLogger, initializeLogLevel, attachWebsocketHttpLogger, crea
 import { setupMetrics } from './metrics.js';
 import * as Redis from './redis.js';
 import { isTruthy, normalizeHashtag, firstParam } from './utils.js';
+import { VirtualKemomimiRelayServerList } from './virtual-kemomimi-relay.js';
 
 const environment = process.env.NODE_ENV || 'development';
 const PERMISSION_VIEW_FEEDS = 0x0000000000100000;
-const VIRTUAL_KEMOMIMI_RELAY_SERVERS_URL = 'https://relay.virtualkemomimi.net/api/servers';
-const VIRTUAL_KEMOMIMI_RELAY_SERVERS_TTL = 7 * 24 * 60 * 60 * 1000;
 
 // Correctly detect and load .env or .env.production file based on environment:
 const dotenvFile = environment === 'production' ? '.env.production' : '.env';
@@ -32,7 +32,8 @@ const dotenvFilePath = path.resolve(
 );
 
 dotenv.config({
-  path: dotenvFilePath
+  path: dotenvFilePath,
+  quiet: true,
 });
 
 initializeLogLevel(process.env, environment);
@@ -92,6 +93,19 @@ const parseJSON = (json, req) => {
     return null;
   }
 };
+
+/**
+ * Parses the query string from a request object.
+ * @param {Request?} req
+ */
+const parseQueryString = (req) => {
+  if (!req?.url) {
+    return undefined;
+  }
+  const url = new URL(req.url, "http://./");
+  const qs = url.search.slice(1);
+  return querystring.parse(qs);
+}
 
 // Used for priming the counters/gauges for the various metrics that are
 // per-channel
@@ -243,55 +257,10 @@ const startServer = async () => {
   const subs = {};
 
   const redisSubscribeClient = Redis.createClient(redisConfig, logger);
-  const virtualKemomimiRelayServers = { domains: [], expiresAt: 0 };
+  const virtualKemomimiRelayServerList = new VirtualKemomimiRelayServerList({ logger });
 
-  const normalizeVirtualKemomimiRelayServer = entry => {
-    let value;
-
-    if (typeof entry === 'string') {
-      value = entry;
-    } else if (entry && typeof entry === 'object') {
-      value = entry.domain || entry.host || entry.server || entry.url || entry.Url;
-    }
-
-    if (typeof value !== 'string' || value.length === 0) {
-      return undefined;
-    }
-
-    try {
-      if (value.startsWith('http://') || value.startsWith('https://')) {
-        value = new URL(value).host;
-      }
-    } catch {
-      return undefined;
-    }
-
-    return value.toLowerCase().replace(/^@/, '') || undefined;
-  };
-
-  const refreshVirtualKemomimiRelayServers = () => {
-    const now = Date.now();
-
-    if (virtualKemomimiRelayServers.expiresAt > now) {
-      return virtualKemomimiRelayServers.domains;
-    }
-
-    virtualKemomimiRelayServers.expiresAt = now + VIRTUAL_KEMOMIMI_RELAY_SERVERS_TTL;
-
-    fetch(VIRTUAL_KEMOMIMI_RELAY_SERVERS_URL, { headers: { Accept: 'application/json' } }).then(async response => {
-      if (!response.ok) {
-        throw new Error(`VirtualKemomimi relay server list returned ${response.status}`);
-      }
-
-      const payload = await response.json();
-      const entries = Array.isArray(payload) ? payload : payload.servers || payload.domains || payload.data || payload.items || [];
-      virtualKemomimiRelayServers.domains = Array.from(new Set(entries.map(normalizeVirtualKemomimiRelayServer).filter(Boolean)));
-    }).catch(err => {
-      logger.warn({ err }, 'Unable to refresh VirtualKemomimi relay server list');
-    });
-
-    return virtualKemomimiRelayServers.domains;
-  };
+  // Prime the cache before the first stream subscription.
+  void virtualKemomimiRelayServerList.refresh();
 
   // When checking metrics in the browser, the favicon is requested this
   // prevents the request from falling through to the API Router, which would
@@ -445,8 +414,8 @@ const startServer = async () => {
    */
   const accountFromRequest = (req) => new Promise((resolve, reject) => {
     const authorization = req.headers.authorization;
-    const location      = req.url ? url.parse(req.url, true) : undefined;
-    const accessToken   = location?.query.access_token || req.headers['sec-websocket-protocol'];
+    const query         = parseQueryString(req);
+    const accessToken   = query?.access_token || req.headers['sec-websocket-protocol'];
 
     if (!authorization && !accessToken) {
       reject(new AuthenticationError('Missing access token'));
@@ -778,7 +747,7 @@ const startServer = async () => {
 
         // @ts-expect-error
         const ownStatus = String(payload.account.id) === String(req.accountId);
-        const serverListed = accountDomain && refreshVirtualKemomimiRelayServers().includes(accountDomain.toLowerCase());
+        const serverListed = accountDomain && virtualKemomimiRelayServerList.cachedDomains().has(accountDomain.toLowerCase());
 
         if (!ownStatus && !localPayload && !serverListed) {
           if (includeFollowed) {
@@ -826,6 +795,7 @@ const startServer = async () => {
           queries.push(client.query('SELECT 1 FROM account_domain_blocks WHERE account_id = $1 AND domain = $2', [req.accountId, accountDomain]));
         }
 
+        /** @type {number|undefined} */
         let virtualKemomimiRelayFollowCheckIndex;
 
         if (needsVirtualKemomimiRelayFollowCheck) {
@@ -834,6 +804,7 @@ const startServer = async () => {
           queries.push(client.query('SELECT 1 FROM follows WHERE account_id = $1 AND target_account_id = $2', [req.accountId, payload.account.id]));
         }
 
+        /** @type {number|undefined} */
         let customFilterIndex;
 
         // @ts-expect-error
@@ -853,7 +824,7 @@ const startServer = async () => {
             return;
           }
 
-          if (needsVirtualKemomimiRelayFollowCheck && values[virtualKemomimiRelayFollowCheckIndex].rows.length === 0) {
+          if (needsVirtualKemomimiRelayFollowCheck && (virtualKemomimiRelayFollowCheckIndex === undefined || !values[virtualKemomimiRelayFollowCheckIndex]?.rows.length)) {
             return;
           }
 
@@ -869,8 +840,7 @@ const startServer = async () => {
           // TODO: Move this logic out of the message handling lifecycle
           // @ts-ignore
           if (!req.cachedFilters) {
-            // @ts-expect-error
-            const filterRows = values[customFilterIndex].rows;
+            const filterRows = customFilterIndex === undefined ? [] : values[customFilterIndex]?.rows ?? [];
 
             req.cachedFilters = filterRows.reduce((cache, filter) => {
               if (cache[filter.id]) {
@@ -1011,7 +981,7 @@ const startServer = async () => {
 
     res.write(':)\n');
 
-    const heartbeat = setInterval(() => res.write(':thump\n'), 15000);
+    const heartbeat = setInterval(() => res.write(':thump\n\n'), 15000);
 
     req.on('close', () => {
       req.log.info({ accountId: req.accountId }, `Ending stream`);
@@ -1089,7 +1059,7 @@ const startServer = async () => {
   // @ts-expect-error
   api.use(errorMiddleware);
 
-  api.get('/api/v1/streaming/*', (req, res) => {
+  api.get('/api/v1/streaming/*splat', (req, res) => {
     // @ts-expect-error
     const channelName = channelNameFromPath(req);
 
@@ -1145,7 +1115,7 @@ const startServer = async () => {
    * @param {Request} req
    * @param {string} name
    * @param {StreamParams} params
-   * @returns {Promise.<{ channelIds: string[], options: { needsFiltering: boolean, filterLocal?: boolean, filterRemote?: boolean } }>}
+   * @returns {Promise.<{ channelIds: string[], options: { needsFiltering: boolean, filterLocal?: boolean, filterRemote?: boolean, virtualKemomimiRelay?: boolean, includeFollowed?: boolean } }>}
    */
   const channelNameToIds = (req, name, params) => new Promise((resolve, reject) => {
     /**
@@ -1162,6 +1132,16 @@ const startServer = async () => {
       }).catch(() => {
         reject(new Error('Error getting feed access settings'));
       });
+    };
+
+    /** @param {boolean} includeFollowed */
+    const resolveVirtualKemomimiRelay = includeFollowed => {
+      virtualKemomimiRelayServerList.refresh().then(() => {
+        resolve({
+          channelIds: isTruthy(params.only_media) ? ['timeline:public:local:media', 'timeline:public:remote:media'] : ['timeline:public:local', 'timeline:public:remote'],
+          options: { needsFiltering: true, virtualKemomimiRelay: true, includeFollowed },
+        });
+      }).catch(reject);
     };
 
     switch (name) {
@@ -1198,16 +1178,10 @@ const startServer = async () => {
       resolveFeed('public', 'timeline:public:remote:media', { needsFiltering: true });
       break;
     case 'virtual_kemomimi_relay':
-      resolve({
-        channelIds: isTruthy(params.only_media) ? ['timeline:public:local:media', 'timeline:public:remote:media'] : ['timeline:public:local', 'timeline:public:remote'],
-        options: { needsFiltering: true, virtualKemomimiRelay: true },
-      });
+      resolveVirtualKemomimiRelay(false);
       break;
     case 'virtual_kemomimi_relay:social':
-      resolve({
-        channelIds: isTruthy(params.only_media) ? ['timeline:public:local:media', 'timeline:public:remote:media'] : ['timeline:public:local', 'timeline:public:remote'],
-        options: { needsFiltering: true, virtualKemomimiRelay: true, includeFollowed: true },
-      });
+      resolveVirtualKemomimiRelay(true);
       break;
     case 'direct':
       resolve({
@@ -1403,8 +1377,8 @@ const startServer = async () => {
    * @param {import('pino').Logger} log
    */
   function onConnection(ws, req, log) {
-    // Note: url.parse could throw, which would terminate the connection, so we
-    // increment the connected clients metric straight away when we establish
+    // In case the handler throws, which would terminate the connection,
+    // increment the connected clients metric straight away when it establishes
     // the connection, without waiting:
     metrics.connectedClients.labels({ type: 'websocket' }).inc();
 
@@ -1486,11 +1460,10 @@ const startServer = async () => {
 
     subscribeWebsocketToSystemChannel(session);
 
-    // Parse the URL for the connection arguments (if supplied), url.parse can throw:
-    const location = req.url && url.parse(req.url, true);
-
-    if (location && location.query.stream) {
-      subscribeWebsocketToChannel(session, firstParam(location.query.stream), location.query);
+    // Parse the URL for the connection arguments (if supplied)
+    const query = parseQueryString(req);
+    if (query && query.stream) {
+      subscribeWebsocketToChannel(session, firstParam(query.stream), query);
     }
   }
 

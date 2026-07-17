@@ -35,7 +35,7 @@ class Quote < ApplicationRecord
   belongs_to :quoted_account, class_name: 'Account', optional: true
 
   before_validation :set_accounts
-  before_validation :set_activity_uri, only: :create, if: -> { account.local? && quoted_account&.remote? }
+  before_validation :set_activity_uri, on: :create, if: -> { account.local? && quoted_account&.remote? }
   validates :activity_uri, presence: true, if: -> { account.local? && quoted_account&.remote? }
   validates :approval_uri, absence: true, if: -> { quoted_account&.local? }
   validate :validate_visibility
@@ -68,7 +68,7 @@ class Quote < ApplicationRecord
   end
 
   def accept_implicit_public_quote!
-    return false unless pending? && quoted_status&.implicit_public_quote_policy?
+    return false unless pending? && approval_uri.blank? && quoted_status&.implicit_public_quote_policy?
 
     accept!
     true
@@ -84,6 +84,10 @@ class Quote < ApplicationRecord
     return unless quoted_status_id.present? && approval_uri.present? && updated_at <= BACKGROUND_REFRESH_INTERVAL.ago
 
     ActivityPub::QuoteRefreshWorker.perform_in(rand(REFRESH_DEADLINE), id)
+  end
+
+  def sign?
+    true
   end
 
   private

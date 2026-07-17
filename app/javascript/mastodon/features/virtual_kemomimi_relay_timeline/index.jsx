@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { defineMessages, FormattedMessage, useIntl } from 'react-intl';
 
-import { Helmet } from 'react-helmet';
+import { Helmet } from '@unhead/react/helmet';
 import { NavLink } from 'react-router-dom';
 
 import PublicIcon from '@/material-icons/400-24px/public.svg?react';

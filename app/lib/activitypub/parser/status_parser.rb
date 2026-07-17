@@ -126,16 +126,22 @@ class ActivityPub::Parser::StatusParser
   def quote_policy
     flags = 0
     interaction_policy = @object['interactionPolicy']
+
+    # Misskey and older Mastodon versions do not publish a quote policy.
+    # Public posts from those implementations keep their historical implicit
+    # permission, while a present (even empty or malformed) canQuote remains an
+    # explicit policy and must not silently fall back to public.
     return implicit_quote_policy if interaction_policy.nil? || (interaction_policy.is_a?(Hash) && !interaction_policy.key?('canQuote'))
 
     policy = interaction_policy['canQuote'] if interaction_policy.is_a?(Hash)
-    return mark_explicit_quote_policy(flags) unless policy.is_a?(Hash)
+    return flags | Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG unless policy.is_a?(Hash)
 
     flags |= quote_subpolicy(policy['automaticApproval'])
     flags <<= 16
     flags |= quote_subpolicy(policy['manualApproval'])
+    flags |= Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG
 
-    mark_explicit_quote_policy(flags)
+    flags
   end
 
   def quote?
@@ -171,33 +177,29 @@ class ActivityPub::Parser::StatusParser
 
   private
 
+  def implicit_quote_policy
+    return 0 unless visibility.in?(%i(public unlisted))
+
+    InteractionPolicy::POLICY_FLAGS[:public] << 16
+  end
+
   def quote_subpolicy(subpolicy)
     flags = 0
 
     allowed_actors = as_array(subpolicy).dup
     allowed_actors.uniq!
 
-    flags |= Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] if allowed_actors.delete('as:Public') || allowed_actors.delete('Public') || allowed_actors.delete('https://www.w3.org/ns/activitystreams#Public')
-    flags |= Status::QUOTE_APPROVAL_POLICY_FLAGS[:followers] if allowed_actors.delete(@options[:followers_collection])
-    flags |= Status::QUOTE_APPROVAL_POLICY_FLAGS[:following] if allowed_actors.delete(@options[:following_collection])
+    flags |= InteractionPolicy::POLICY_FLAGS[:public] if allowed_actors.delete('as:Public') || allowed_actors.delete('Public') || allowed_actors.delete('https://www.w3.org/ns/activitystreams#Public')
+    flags |= InteractionPolicy::POLICY_FLAGS[:followers] if allowed_actors.delete(@options[:followers_collection])
+    flags |= InteractionPolicy::POLICY_FLAGS[:following] if allowed_actors.delete(@options[:following_collection])
 
     # Remove the special-meaning actor URI
     allowed_actors.delete(@options[:actor_uri])
 
     # Any unrecognized actor is marked as unsupported
-    flags |= Status::QUOTE_APPROVAL_POLICY_FLAGS[:unsupported_policy] unless allowed_actors.empty?
+    flags |= InteractionPolicy::POLICY_FLAGS[:unsupported_policy] unless allowed_actors.empty?
 
     flags
-  end
-
-  def implicit_quote_policy
-    return 0 unless %i(public unlisted).include?(visibility)
-
-    Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16
-  end
-
-  def mark_explicit_quote_policy(flags)
-    flags | Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG
   end
 
   def raw_language_code

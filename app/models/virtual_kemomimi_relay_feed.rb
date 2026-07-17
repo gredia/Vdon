@@ -57,7 +57,7 @@ class VirtualKemomimiRelayFeed
   end
 
   def without_quotes_scope
-    Status.left_outer_joins(:quote).where(quotes: { id: nil })
+    Status.where.missing(:quote)
   end
 
   def media_only_scope

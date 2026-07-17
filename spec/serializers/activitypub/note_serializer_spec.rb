@@ -43,6 +43,26 @@ RSpec.describe ActivityPub::NoteSerializer do
       .and(not_include(reply_by_account_visibility_direct.uri)) # Replies with direct visibility
   end
 
+  context 'with tagged featured collections' do
+    let(:collection) { Fabricate(:collection) }
+
+    before do
+      parent.tagged_objects.create!(object: collection, ap_type: 'FeaturedCollection', uri: ActivityPub::TagManager.instance.uri_for(collection))
+    end
+
+    it 'has the expected shape' do
+      expect(subject).to include({
+        'type' => 'Note',
+        'tag' => include(
+          a_hash_including({
+            'type' => 'FeaturedCollection',
+            'id' => ActivityPub::TagManager.instance.uri_for(collection),
+          })
+        ),
+      })
+    end
+  end
+
   context 'with a quote' do
     let(:quoted_status) { Fabricate(:status) }
     let!(:quote) { Fabricate(:quote, status: parent, quoted_status: quoted_status, state: :accepted) }
@@ -63,7 +83,7 @@ RSpec.describe ActivityPub::NoteSerializer do
     end
 
     context 'when quoting a remote post with a recorded implicit quote policy' do
-      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, uri: 'https://misskey.example/notes/abc123', url: 'https://misskey.example/notes/abc123', quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
+      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, uri: 'https://misskey.example/notes/abc123', url: 'https://misskey.example/notes/abc123', quote_approval_policy: InteractionPolicy::POLICY_FLAGS[:public] << 16) }
 
       it 'makes the fallback link visible for servers that do not accept the quote' do
         expect(subject['content'])
@@ -74,7 +94,7 @@ RSpec.describe ActivityPub::NoteSerializer do
     end
 
     context 'when quoting a remote post with an explicit quote policy' do
-      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'remote.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG | (Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)) }
+      let(:quoted_status) { Fabricate(:status, account: Fabricate(:account, domain: 'remote.example'), visibility: :public, quote_approval_policy: Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG | (InteractionPolicy::POLICY_FLAGS[:public] << 16)) }
 
       it 'keeps the Mastodon quote fallback hidden in content' do
         expect(subject['content'])
@@ -99,7 +119,7 @@ RSpec.describe ActivityPub::NoteSerializer do
   end
 
   context 'with a quote policy' do
-    let(:parent) { Fabricate(:status, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:followers] << 16) }
+    let(:parent) { Fabricate(:status, quote_approval_policy: InteractionPolicy::POLICY_FLAGS[:followers] << 16) }
 
     it 'has the expected shape' do
       expect(subject).to include({

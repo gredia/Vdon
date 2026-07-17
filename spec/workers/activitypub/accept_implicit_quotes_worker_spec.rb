@@ -10,7 +10,7 @@ RSpec.describe ActivityPub::AcceptImplicitQuotesWorker do
       :status,
       account: Fabricate(:account, domain: 'quoted.example'),
       visibility: :public,
-      quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16
+      quote_approval_policy: InteractionPolicy::POLICY_FLAGS[:public] << 16
     )
   end
 
@@ -26,7 +26,7 @@ RSpec.describe ActivityPub::AcceptImplicitQuotesWorker do
 
   context 'when the quoted post is no longer implicitly quotable' do
     before do
-      quoted_status.update!(quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG)
+      quoted_status.update!(quote_approval_policy: Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG)
     end
 
     it 'does not enqueue quotes' do

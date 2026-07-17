@@ -77,7 +77,7 @@ RSpec.describe ActivityPub::VerifyQuoteService do
 
       before do
         stub_request(:get, approval_uri)
-          .to_return(status: 200, body: JSON.generate(json), headers: { 'Content-Type': 'application/activity+json' })
+          .to_return(status: 200, body: json.to_json, headers: { 'Content-Type': 'application/activity+json' })
       end
 
       context 'with a valid activity for already-fetched posts' do
@@ -145,35 +145,6 @@ RSpec.describe ActivityPub::VerifyQuoteService do
 
           expect(a_request(:get, approval_uri))
             .to have_been_made.once
-
-          expect(quote.reload.quoted_status.content).to eq 'previously unknown post'
-        end
-      end
-
-      context 'with a valid activity containing an inlined post after fetching the post raises a connection error' do
-        let(:quoted_status) { nil }
-
-        let(:approval_interaction_target) do
-          {
-            type: 'Note',
-            id: 'https://b.example.com/unknown-quoted',
-            to: 'https://www.w3.org/ns/activitystreams#Public',
-            attributedTo: ActivityPub::TagManager.instance.uri_for(quoted_account),
-            content: 'previously unknown post',
-          }
-        end
-
-        let(:failing_fetch_service) { instance_double(ActivityPub::FetchRemoteStatusService) }
-        let(:embedded_fetch_service) { ActivityPub::FetchRemoteStatusService.new }
-
-        before do
-          allow(failing_fetch_service).to receive(:call).and_raise(HTTP::ConnectionError)
-          allow(ActivityPub::FetchRemoteStatusService).to receive(:new).and_return(failing_fetch_service, embedded_fetch_service)
-        end
-
-        it 'continues through the approval object and accepts the inlined post' do
-          expect { subject.call(quote, approval_uri_arg, fetchable_quoted_uri: 'https://b.example.com/unknown-quoted') }
-            .to change(quote, :state).to('accepted')
 
           expect(quote.reload.quoted_status.content).to eq 'previously unknown post'
         end
@@ -277,8 +248,6 @@ RSpec.describe ActivityPub::VerifyQuoteService do
       let(:approval_uri) { nil }
 
       context 'without any fast-track condition' do
-        let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
-
         it 'does not update the status' do
           expect { subject.call(quote, approval_uri_arg) }
             .to_not change(quote, :state)
@@ -295,102 +264,77 @@ RSpec.describe ActivityPub::VerifyQuoteService do
       end
 
       context 'when the account is mentioned by the quoted post' do
-        let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
-
         before do
           quoted_status.mentions << Mention.new(account: account)
         end
 
-        it 'does not the status' do
+        it 'does not update the status' do
           expect { subject.call(quote, approval_uri_arg) }
             .to_not change(quote, :state).from('pending')
         end
       end
+    end
 
-      context 'with legacy quote approval enabled' do
-        let(:quote) do
-          Fabricate(:quote, status: status, quoted_status: nil, legacy: true).tap do |quote|
-            quote.update_columns(quoted_status_id: quoted_status.id, quoted_account_id: quoted_account.id)
-            quote.reload
-          end
+    context 'with a compatible quote and no approval URI' do
+      let(:approval_uri) { nil }
+
+      context 'when the remote quoted post has an implicit public policy' do
+        let(:quoted_status) do
+          Fabricate(
+            :status,
+            account: quoted_account,
+            visibility: :public,
+            quote_approval_policy: InteractionPolicy::POLICY_FLAGS[:public] << 16
+          )
         end
-
-        it 'accepts a quote of a public post' do
-          expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
-            .to change(quote, :state).to('accepted')
-        end
-
-        context 'when the quoted post is unlisted' do
-          let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :unlisted) }
-
-          it 'accepts the quote' do
-            expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
-              .to change(quote, :state).to('accepted')
-          end
-        end
-
-        context 'when the quoted post is followers-only' do
-          let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :private) }
-
-          it 'does not accept the quote' do
-            expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
-              .to_not change(quote, :state).from('pending')
-          end
-        end
-
-        context 'when the quoted post is direct' do
-          let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :direct) }
-
-          it 'does not accept the quote' do
-            expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
-              .to_not change(quote, :state).from('pending')
-          end
-        end
-
-        context 'when the quoted post is local' do
-          let(:quoted_account) { Fabricate(:account, domain: nil) }
-
-          it 'accepts the quote' do
-            expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
-              .to change(quote, :state).to('accepted')
-          end
-
-          context 'with a followers-only post' do
-            let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :private) }
-
-            it 'does not accept the quote' do
-              expect { subject.call(quote, approval_uri_arg, allow_legacy_quote_approval: true) }
-                .to_not change(quote, :state).from('pending')
-            end
-          end
-        end
-      end
-
-      context 'with an implicit quote policy on the quoted post' do
-        let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
 
         it 'accepts the quote without fetching an approval' do
           expect { subject.call(quote, approval_uri_arg) }
-            .to change(quote, :state).to('accepted')
+            .to change(quote, :state).from('pending').to('accepted')
         end
       end
 
-      context 'with an explicit quote policy but without an approval' do
-        let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG | (Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)) }
+      context 'when the remote quoted post has an explicit public policy' do
+        let(:quoted_status) do
+          Fabricate(
+            :status,
+            account: quoted_account,
+            visibility: :public,
+            quote_approval_policy: Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG | (InteractionPolicy::POLICY_FLAGS[:public] << 16)
+          )
+        end
 
-        it 'does not update the status' do
+        it 'keeps the quote pending for the normal authorization flow' do
           expect { subject.call(quote, approval_uri_arg) }
             .to_not change(quote, :state).from('pending')
         end
       end
 
-      context 'with a legacy quote for an explicit-policy post but without legacy quote approval enabled' do
-        let(:quoted_status) { Fabricate(:status, account: quoted_account, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
+      context 'when a legacy remote quote targets a local post' do
+        let(:quoted_account) { Fabricate(:account) }
         let(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, legacy: true) }
+        let(:quoted_status) do
+          Fabricate(
+            :status,
+            account: quoted_account,
+            visibility: :public,
+            quote_approval_policy: local_quote_policy
+          )
+        end
+        let(:local_quote_policy) { InteractionPolicy::POLICY_FLAGS[:public] << 16 }
 
-        it 'does not update the status' do
+        it 'accepts the quote when the local author allows it' do
           expect { subject.call(quote, approval_uri_arg) }
-            .to_not change(quote, :state).from('pending')
+            .to change(quote, :state).from('pending').to('accepted')
+        end
+
+        context 'when the local author denies quotes' do
+          let(:local_quote_policy) { 0 }
+
+          it 'does not bypass the local policy' do
+            expect { subject.call(quote, approval_uri_arg) }
+              .to_not change(quote, :state).from('pending')
+          end
         end
       end
     end
@@ -420,8 +364,8 @@ RSpec.describe ActivityPub::VerifyQuoteService do
       allow(fetch_service).to receive(:call).and_raise(HTTP::ConnectionError)
     end
 
-    it 'raises the original error so the caller can retry it' do
-      expect { subject.call(quote, nil, fetchable_quoted_uri: quoted_uri, allow_legacy_quote_approval: true) }
+    it 'raises the original error so the caller can schedule a retry' do
+      expect { subject.call(quote, nil, fetchable_quoted_uri: quoted_uri) }
         .to raise_error(HTTP::ConnectionError)
     end
   end

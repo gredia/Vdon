@@ -7,7 +7,7 @@ RSpec.describe ActivityPub::QuoteRefetchScheduler do
   let(:quoted_status) { nil }
   let(:quote_state) { :pending }
   let(:quote_uri) { 'https://remote.example/notes/123' }
-  let(:options) { { request_id: 'request-123', approval_uri: nil, allow_legacy_quote_approval: true } }
+  let(:options) { { request_id: 'request-123', approval_uri: nil } }
 
   before do
     allow(ActivityPub::RefetchAndVerifyQuoteWorker).to receive(:perform_in)
@@ -23,7 +23,7 @@ RSpec.describe ActivityPub::QuoteRefetchScheduler do
           be_between(30.seconds, 600.seconds),
           quote.id,
           quote_uri,
-          { 'request_id' => 'request-123', 'approval_uri' => nil, 'allow_legacy_quote_approval' => true }
+          { 'request_id' => 'request-123', 'approval_uri' => nil }
         )
     end
 
@@ -51,7 +51,7 @@ RSpec.describe ActivityPub::QuoteRefetchScheduler do
             be_between(30.seconds, 600.seconds),
             quote.id,
             quote_uri,
-            { 'request_id' => 'request-123', 'approval_uri' => nil, 'allow_legacy_quote_approval' => true }
+            { 'request_id' => 'request-123', 'approval_uri' => nil }
           )
       end
     end

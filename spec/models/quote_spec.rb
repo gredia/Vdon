@@ -34,7 +34,7 @@ RSpec.describe Quote do
     let(:quoted_status) { Fabricate(:status, account: account, visibility: visibility, quote_approval_policy: quote_approval_policy) }
     let(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, state: state) }
     let(:visibility) { :public }
-    let(:quote_approval_policy) { Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16 }
+    let(:quote_approval_policy) { InteractionPolicy::POLICY_FLAGS[:public] << 16 }
     let(:state) { :pending }
 
     it 'accepts a pending quote of a remote public post with a recorded implicit policy' do
@@ -52,7 +52,7 @@ RSpec.describe Quote do
     end
 
     context 'when the quoted post has an explicit quote policy' do
-      let(:quote_approval_policy) { Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG | (Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
+      let(:quote_approval_policy) { Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG | (InteractionPolicy::POLICY_FLAGS[:public] << 16) }
 
       it 'does not accept the quote' do
         expect { accept_implicit_public_quote }

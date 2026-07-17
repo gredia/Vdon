@@ -6,20 +6,18 @@ class ActivityPub::VerifyQuoteService < BaseService
   MAX_SYNCHRONOUS_DEPTH = 2
 
   # Optionally fetch quoted post, and verify the quote is authorized
-  def call(quote, approval_uri, fetchable_quoted_uri: nil, prefetched_quoted_object: nil, prefetched_approval: nil, request_id: nil, depth: nil, allow_legacy_quote_approval: false)
+  def call(quote, approval_uri, fetchable_quoted_uri: nil, prefetched_quoted_object: nil, prefetched_approval: nil, request_id: nil, depth: nil)
     @request_id = request_id
     @depth = depth || 0
     @quote = quote
     @approval_uri = approval_uri.presence || @quote.approval_uri
-    @allow_legacy_quote_approval = allow_legacy_quote_approval
     @fetching_error = nil
 
     fetch_quoted_post_if_needed!(fetchable_quoted_uri, prefetched_body: prefetched_quoted_object)
     raise @fetching_error if @approval_uri.blank? && @quote.quoted_status.nil? && @fetching_error
 
-    return if fast_track_approval! || legacy_quote_approval!
-    return if quote.quoted_account&.local?
-    return if @approval_uri.blank?
+    return if fast_track_approval! || accept_compatible_quote!
+    return if quote.quoted_account&.local? || @approval_uri.blank?
 
     @json = fetch_approval_object(@approval_uri, prefetched_body: prefetched_approval)
     return quote.reject! if @json.nil?
@@ -31,7 +29,7 @@ class ActivityPub::VerifyQuoteService < BaseService
     return if import_quoted_post_if_needed!(fetchable_quoted_uri) && fast_track_approval!
 
     # Raise an error if we failed to fetch the status
-    raise @fetching_error if @quote.status.nil? && @fetching_error
+    raise @fetching_error if @quote.quoted_status.nil? && @fetching_error
 
     return unless matching_quoted_post? && matching_quoted_author?
 
@@ -54,13 +52,22 @@ class ActivityPub::VerifyQuoteService < BaseService
     false
   end
 
-  def legacy_quote_approval!
-    return false unless @allow_legacy_quote_approval || @quote.quoted_status&.implicit_public_quote_policy?
-    return false if @approval_uri.present? || @quote.quoted_status_id.blank?
-    return false unless @quote.quoted_status.distributable?
+  # Legacy quotes from local accounts still obey the local author's current
+  # policy. Remote sources without an explicit policy use the compatibility
+  # policy parsed by StatusParser. Explicit FEP-044f policies always use the
+  # normal authorization flow below.
+  def accept_compatible_quote!
+    return false if @approval_uri.present? || @quote.quoted_status.nil?
+
+    source = @quote.quoted_status
+    allowed = if source.local?
+                @quote.legacy? && StatusPolicy.new(@quote.account, source).quote?
+              else
+                source.implicit_public_quote_policy?
+              end
+    return false unless allowed
 
     @quote.accept!
-
     true
   end
 

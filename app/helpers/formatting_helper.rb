@@ -30,11 +30,7 @@ module FormattingHelper
     quoted_status = status.quote&.quoted_status if status.local?
     content = html_aware_format(status.text, status.local?, preloaded_accounts: [status.account] + (status.respond_to?(:active_mentions) ? status.active_mentions.map(&:account) : []), quoted_status: quoted_status)
 
-    if !status.local? && status.quote.present?
-      ActivityPub::QuoteFallback.remove(content, status.quote)
-    else
-      content
-    end
+    !status.local? && status.quote.present? ? ActivityPub::QuoteFallback.remove(content, status.quote) : content
   end
 
   def rss_status_content_format(status)

@@ -3,34 +3,27 @@
 module Status::InteractionPolicyConcern
   extend ActiveSupport::Concern
 
-  QUOTE_APPROVAL_POLICY_FLAGS = {
-    unsupported_policy: (1 << 0),
-    public: (1 << 1),
-    followers: (1 << 2),
-    following: (1 << 3),
-  }.freeze
-
-  # Stored in the existing integer so remote FEP-044f “nobody” can be distinguished
-  # from non-FEP/Misskey-style posts that simply omit interactionPolicy.
-  QUOTE_APPROVAL_POLICY_PRESENT_FLAG = 1 << 30
+  # Stored in an otherwise unused bit of the existing 32-bit bitmap. The bit is
+  # outside InteractionPolicy::POLICY_FLAGS, so SubPolicy ignores it while we
+  # can distinguish an explicitly advertised policy from the compatibility
+  # default applied to software that does not publish interactionPolicy.
+  QUOTE_POLICY_EXPLICIT_FLAG = 1 << 30
 
   included do
+    composed_of :quote_interaction_policy, class_name: 'InteractionPolicy', mapping: { quote_approval_policy: :bitmap }
+
     before_validation :downgrade_quote_policy, if: -> { local? && !distributable? }
   end
 
   def quote_policy_as_keys(kind)
-    case kind
-    when :automatic
-      policy = quote_approval_policy >> 16
-    when :manual
-      policy = quote_approval_policy & 0xFFFF
-    end
+    raise ArgumentError unless kind.in?(%i(automatic manual))
 
-    QUOTE_APPROVAL_POLICY_FLAGS.keys.select { |key| policy.anybits?(QUOTE_APPROVAL_POLICY_FLAGS[key]) }.map(&:to_s)
+    sub_policy = quote_interaction_policy.send(kind)
+    sub_policy.as_keys
   end
 
   # Returns `:automatic`, `:manual`, `:unknown` or `:denied`
-  def quote_policy_for_account(other_account, preloaded_relations: {})
+  def quote_policy_for_account(other_account)
     return :denied if other_account.nil? || direct_visibility? || reblog?
 
     following_author = nil
@@ -40,57 +33,54 @@ module Status::InteractionPolicyConcern
     return :automatic if account_id == other_account.id
     return :denied unless distributable?
 
-    automatic_policy = quote_approval_policy >> 16
-    manual_policy = quote_approval_policy & 0xFFFF
+    automatic_policy = quote_interaction_policy.automatic
 
-    return :automatic if automatic_policy.anybits?(QUOTE_APPROVAL_POLICY_FLAGS[:public])
+    return :automatic if automatic_policy.public?
 
-    if automatic_policy.anybits?(QUOTE_APPROVAL_POLICY_FLAGS[:followers])
-      following_author = preloaded_relations[:following] ? preloaded_relations[:following][account_id] : other_account.following?(account) if following_author.nil?
+    if automatic_policy.followers?
+      following_author = other_account.following?(account) if following_author.nil?
       return :automatic if following_author
     end
 
-    if automatic_policy.anybits?(QUOTE_APPROVAL_POLICY_FLAGS[:following])
+    if automatic_policy.following?
       followed_by_author = account.following?(other_account) if followed_by_author.nil?
       return :automatic if followed_by_author
     end
 
     # We don't know we are allowed by the automatic policy, considering the manual one
-    return :manual if manual_policy.anybits?(QUOTE_APPROVAL_POLICY_FLAGS[:public])
+    manual_policy = quote_interaction_policy.manual
 
-    if manual_policy.anybits?(QUOTE_APPROVAL_POLICY_FLAGS[:followers])
-      following_author = preloaded_relations[:following] ? preloaded_relations[:following][account_id] : other_account.following?(account) if following_author.nil?
+    return :manual if manual_policy.public?
+
+    if manual_policy.followers?
+      following_author = other_account.following?(account) if following_author.nil?
       return :manual if following_author
     end
 
-    if manual_policy.anybits?(QUOTE_APPROVAL_POLICY_FLAGS[:following])
+    if manual_policy.following?
       followed_by_author = account.following?(other_account) if followed_by_author.nil?
       return :manual if followed_by_author
     end
 
-    return :unknown if (automatic_policy | manual_policy).anybits?(QUOTE_APPROVAL_POLICY_FLAGS[:unsupported_policy])
-    return :automatic if implicit_public_quote_policy?
+    return :unknown if [automatic_policy, manual_policy].any?(&:unsupported_policy?)
 
     :denied
   end
 
   def explicit_quote_policy?
-    quote_approval_policy.anybits?(QUOTE_APPROVAL_POLICY_PRESENT_FLAG)
+    quote_approval_policy.anybits?(QUOTE_POLICY_EXPLICIT_FLAG)
   end
 
+  # Compatibility mode for public remote posts whose implementation predates
+  # FEP-044f interaction policies (notably Misskey's legacy quote format).
   def implicit_public_quote_policy?
-    account.remote? &&
-      !explicit_quote_policy? &&
-      distributable? &&
-      (quote_approval_policy >> 16).anybits?(QUOTE_APPROVAL_POLICY_FLAGS[:public])
+    !local? && distributable? && !explicit_quote_policy? && quote_interaction_policy.automatic.public?
   end
 
-  def quote_accepted_without_request_for_account?(other_account, preloaded_relations: {})
-    if local?
-      StatusPolicy.new(other_account, self, preloaded_relations).quote?
-    else
-      implicit_public_quote_policy?
-    end
+  def quote_accepted_without_request_for_account?(other_account)
+    return StatusPolicy.new(other_account, self).quote? if local?
+
+    implicit_public_quote_policy?
   end
 
   def quote_request_needed?

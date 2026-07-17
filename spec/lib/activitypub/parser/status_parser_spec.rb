@@ -107,7 +107,7 @@ RSpec.describe ActivityPub::Parser::StatusParser do
 
       context 'when the post is public' do
         it 'returns a policy allowing public quotes' do
-          expect(subject).to eq(Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)
+          expect(subject).to eq(InteractionPolicy::POLICY_FLAGS[:public] << 16)
         end
       end
 
@@ -125,7 +125,7 @@ RSpec.describe ActivityPub::Parser::StatusParser do
         end
 
         it 'returns a policy allowing public quotes' do
-          expect(subject).to eq(Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)
+          expect(subject).to eq(InteractionPolicy::POLICY_FLAGS[:public] << 16)
         end
       end
 
@@ -160,7 +160,7 @@ RSpec.describe ActivityPub::Parser::StatusParser do
       end
 
       it 'returns the implicit public quote policy' do
-        expect(subject).to eq(Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)
+        expect(subject).to eq(InteractionPolicy::POLICY_FLAGS[:public] << 16)
       end
     end
 
@@ -177,7 +177,7 @@ RSpec.describe ActivityPub::Parser::StatusParser do
       end
 
       it 'marks the policy as an explicit denial' do
-        expect(subject).to eq Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG
+        expect(subject).to eq Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG
       end
     end
 
@@ -194,7 +194,7 @@ RSpec.describe ActivityPub::Parser::StatusParser do
       end
 
       it 'marks the policy as an explicit denial' do
-        expect(subject).to eq Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG
+        expect(subject).to eq Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG
       end
     end
 
@@ -219,7 +219,7 @@ RSpec.describe ActivityPub::Parser::StatusParser do
       end
 
       it 'returns a policy not allowing anyone to quote' do
-        expect(subject).to eq Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG
+        expect(subject).to eq Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG
       end
     end
 
@@ -244,7 +244,7 @@ RSpec.describe ActivityPub::Parser::StatusParser do
       end
 
       it 'returns a policy not allowing anyone to quote' do
-        expect(subject).to eq Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG | (Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)
+        expect(subject).to eq Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG | (InteractionPolicy::POLICY_FLAGS[:public] << 16)
       end
     end
 
@@ -270,7 +270,7 @@ RSpec.describe ActivityPub::Parser::StatusParser do
       end
 
       it 'returns a policy allowing everyone including followers' do
-        expect(subject).to eq Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG | Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] | (Status::QUOTE_APPROVAL_POLICY_FLAGS[:followers] << 16)
+        expect(subject).to eq Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG | InteractionPolicy::POLICY_FLAGS[:public] | (InteractionPolicy::POLICY_FLAGS[:followers] << 16)
       end
     end
   end

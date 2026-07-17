@@ -9,7 +9,7 @@ RSpec.describe ActivityPub::AcceptImplicitQuoteWorker do
   let(:quoted_status) { Fabricate(:status, account: quoted_account, visibility: :public, quote_approval_policy: quote_approval_policy) }
   let(:status) { Fabricate(:status) }
   let(:quote) { Fabricate(:quote, status: status, quoted_status: quoted_status, state: quote_state) }
-  let(:quote_approval_policy) { Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16 }
+  let(:quote_approval_policy) { InteractionPolicy::POLICY_FLAGS[:public] << 16 }
   let(:quote_state) { :pending }
 
   before do
@@ -25,7 +25,7 @@ RSpec.describe ActivityPub::AcceptImplicitQuoteWorker do
   end
 
   context 'when the quoted post has an explicit quote policy' do
-    let(:quote_approval_policy) { Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG }
+    let(:quote_approval_policy) { Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG }
 
     it 'leaves the quote pending' do
       expect { perform }

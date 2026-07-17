@@ -161,9 +161,9 @@ RSpec.describe PostStatusService do
   end
 
   it 'creates a status with the quote approval policy set' do
-    status = create_status_with_options(quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:followers] << 16)
+    status = create_status_with_options(quote_approval_policy: InteractionPolicy::POLICY_FLAGS[:followers] << 16)
 
-    expect(status.quote_approval_policy).to eq(Status::QUOTE_APPROVAL_POLICY_FLAGS[:followers] << 16)
+    expect(status.quote_approval_policy).to eq(InteractionPolicy::POLICY_FLAGS[:followers] << 16)
   end
 
   it 'processes mentions' do
@@ -175,7 +175,7 @@ RSpec.describe PostStatusService do
     status = subject.call(account, text: 'test status update')
 
     expect(ProcessMentionsService).to have_received(:new)
-    expect(mention_service).to have_received(:call).with(status, save_records: false)
+    expect(mention_service).to have_received(:call).with(status)
   end
 
   it 'safeguards mentions' do
@@ -207,6 +207,16 @@ RSpec.describe PostStatusService do
 
     expect(ProcessHashtagsService).to have_received(:new)
     expect(hashtags_service).to have_received(:call).with(status)
+  end
+
+  it 'processes tagged objects' do
+    account = Fabricate(:account)
+    collection = Fabricate(:collection)
+
+    status = subject.call(account, text: "test #{ActivityPub::TagManager.instance.uri_for(collection)} #{ActivityPub::TagManager.instance.uri_for(collection)}")
+
+    expect(status.tagged_objects.map(&:object))
+      .to contain_exactly(collection)
   end
 
   it 'gets distributed' do
@@ -299,7 +309,7 @@ RSpec.describe PostStatusService do
 
   it 'correctly requests a quote for remote posts' do
     account = Fabricate(:account)
-    quoted_status = Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG | (Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16))
+    quoted_status = Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), quote_approval_policy: Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG | (InteractionPolicy::POLICY_FLAGS[:public] << 16))
 
     expect { subject.call(account, text: 'test', quoted_status: quoted_status) }
       .to enqueue_sidekiq_job(ActivityPub::QuoteRequestWorker)
@@ -307,7 +317,7 @@ RSpec.describe PostStatusService do
 
   it 'allows quotes with spoilers and no text' do
     account = Fabricate(:account)
-    quoted_status = Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG | (Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16))
+    quoted_status = Fabricate(:status, account: Fabricate(:account, domain: 'example.com'), quote_approval_policy: Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG | (InteractionPolicy::POLICY_FLAGS[:public] << 16))
 
     expect { subject.call(account, spoiler_text: 'test', quoted_status: quoted_status) }
       .to enqueue_sidekiq_job(ActivityPub::QuoteRequestWorker)
@@ -327,7 +337,7 @@ RSpec.describe PostStatusService do
 
   it 'accepts a quote of a remote public post with an implicit quote policy' do
     account = Fabricate(:account)
-    quoted_status = Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16)
+    quoted_status = Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: InteractionPolicy::POLICY_FLAGS[:public] << 16)
 
     status = subject.call(account, text: 'test', quoted_status: quoted_status)
 

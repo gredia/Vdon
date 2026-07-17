@@ -68,7 +68,7 @@ RSpec.describe Status::InteractionPolicyConcern do
     end
 
     context 'with a remote public post with an implicit quote policy' do
-      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
+      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'misskey.example'), visibility: :public, quote_approval_policy: InteractionPolicy::POLICY_FLAGS[:public] << 16) }
 
       it 'returns :automatic' do
         expect(status.quote_policy_for_account(account)).to eq :automatic
@@ -96,7 +96,7 @@ RSpec.describe Status::InteractionPolicyConcern do
     end
 
     context 'with a remote post with an explicit quote policy denying quotes' do
-      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'mastodon.example'), visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_PRESENT_FLAG) }
+      let(:status) { Fabricate(:status, account: Fabricate(:account, domain: 'mastodon.example'), visibility: :public, quote_approval_policy: Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG) }
 
       it 'returns :denied' do
         expect(status.quote_policy_for_account(account)).to eq :denied

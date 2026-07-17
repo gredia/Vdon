@@ -94,7 +94,7 @@ RSpec.describe REST::StatusSerializer do
     end
 
     context 'with a recorded implicit quote policy' do
-      let(:status) { Fabricate(:status, account: bob, visibility: :public, quote_approval_policy: Status::QUOTE_APPROVAL_POLICY_FLAGS[:public] << 16) }
+      let(:status) { Fabricate(:status, account: bob, visibility: :public, quote_approval_policy: InteractionPolicy::POLICY_FLAGS[:public] << 16) }
 
       it 'serializes the quote approval as automatic for the current user' do
         expect(subject['quote_approval'])
@@ -111,6 +111,23 @@ RSpec.describe REST::StatusSerializer do
         expect(subject)
           .to include(
             'edited_at' => match_api_datetime_format
+          )
+      end
+    end
+
+    context 'with a tagged collection' do
+      let(:collection) { Fabricate(:collection) }
+
+      before do
+        status.tagged_objects.create!(object: collection, ap_type: 'FeaturedCollection', uri: ActivityPub::TagManager.instance.uri_for(collection))
+      end
+
+      it 'contains the tagged collection' do
+        expect(subject)
+          .to include(
+            'tagged_collections' => [a_hash_including(
+              'id' => collection.id.to_s
+            )]
           )
       end
     end
