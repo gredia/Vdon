@@ -17,7 +17,7 @@ import { AuthenticationError, RequestError, extractStatusAndMessage as extractEr
 import { logger, httpLogger, initializeLogLevel, attachWebsocketHttpLogger, createWebsocketLogger } from './logging.js';
 import { setupMetrics } from './metrics.js';
 import * as Redis from './redis.js';
-import { isTruthy, normalizeHashtag, firstParam } from './utils.js';
+import { isTruthy, normalizeHashtag, firstParam, statusFilterTargets } from './utils.js';
 import { VirtualKemomimiRelayServerList } from './virtual-kemomimi-relay.js';
 
 const environment = process.env.NODE_ENV || 'development';
@@ -766,7 +766,7 @@ const startServer = async () => {
 
       // Filter based on domain blocks, blocks, mutes, or custom filters:
       // @ts-expect-error
-      const targetAccountIds = [payload.account.id].concat(payload.mentions.map(item => item.id));
+      const { authorAccountIds, targetAccountIds, accountDomains } = statusFilterTargets(payload);
 
       // TODO: Move this logic out of the message handling loop
       pgPool.connect((err, client, releasePgConnection) => {
@@ -779,20 +779,22 @@ const startServer = async () => {
           // @ts-expect-error
           client.query(`SELECT 1
                         FROM blocks
-                        WHERE (account_id = $1 AND target_account_id IN (${placeholders(targetAccountIds, 2)}))
-                           OR (account_id = $2 AND target_account_id = $1)
+                        WHERE (account_id = $1 AND target_account_id IN (${placeholders(targetAccountIds, 1)}))
+                           OR (account_id IN (${placeholders(authorAccountIds, targetAccountIds.length + 1)}) AND target_account_id = $1)
                         UNION
                         SELECT 1
                         FROM mutes
                         WHERE account_id = $1
-                          AND target_account_id IN (${placeholders(targetAccountIds, 2)})`, [req.accountId, payload.
-                          // @ts-expect-error
-                          account.id].concat(targetAccountIds)),
+                          AND target_account_id IN (${placeholders(targetAccountIds, 1)})`, [req.accountId].concat(targetAccountIds, authorAccountIds)),
         ];
 
-        if (accountDomain) {
+        /** @type {number|undefined} */
+        let domainBlockQueryIndex;
+
+        if (accountDomains.length > 0) {
+          domainBlockQueryIndex = queries.length;
           // @ts-expect-error
-          queries.push(client.query('SELECT 1 FROM account_domain_blocks WHERE account_id = $1 AND domain = $2', [req.accountId, accountDomain]));
+          queries.push(client.query(`SELECT 1 FROM account_domain_blocks WHERE account_id = $1 AND domain IN (${placeholders(accountDomains, 1)})`, [req.accountId].concat(accountDomains)));
         }
 
         /** @type {number|undefined} */
@@ -820,7 +822,7 @@ const startServer = async () => {
           // Handling blocks & mutes and domain blocks: If one of those applies,
           // then we don't transmit the payload of the event to the client
           // @ts-expect-error
-          if (values[0].rows.length > 0 || (accountDomain && values[1].rows.length > 0)) {
+          if (values[0].rows.length > 0 || (domainBlockQueryIndex !== undefined && values[domainBlockQueryIndex].rows.length > 0)) {
             return;
           }
 

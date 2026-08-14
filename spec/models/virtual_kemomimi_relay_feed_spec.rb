@@ -53,6 +53,49 @@ RSpec.describe VirtualKemomimiRelayFeed do
       expect(described_class.new(viewer, with_reblogs: false).get(20).map(&:id)).to_not include(boost.id)
     end
 
+    it 'includes boosts of statuses from accounts without excluded relationships' do
+      original_status = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'))
+      boost = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), reblog: original_status)
+
+      expect(status_ids).to include(boost.id)
+    end
+
+    it 'excludes boosts of statuses from accounts who blocked the viewer' do
+      original_account = Fabricate(:account, domain: 'allowed.example')
+      original_status = Fabricate(:status, account: original_account)
+      boost = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), reblog: original_status)
+      original_account.block!(viewer)
+
+      expect(status_ids).to_not include(boost.id)
+    end
+
+    it 'excludes boosts of statuses from accounts blocked by the viewer' do
+      original_account = Fabricate(:account, domain: 'allowed.example')
+      original_status = Fabricate(:status, account: original_account)
+      boost = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), reblog: original_status)
+      viewer.block!(original_account)
+
+      expect(status_ids).to_not include(boost.id)
+    end
+
+    it 'excludes boosts of statuses from accounts muted by the viewer' do
+      original_account = Fabricate(:account, domain: 'allowed.example')
+      original_status = Fabricate(:status, account: original_account)
+      boost = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), reblog: original_status)
+      viewer.mute!(original_account)
+
+      expect(status_ids).to_not include(boost.id)
+    end
+
+    it 'excludes boosts of statuses from domains blocked by the viewer' do
+      original_account = Fabricate(:account, domain: 'blocked.example')
+      original_status = Fabricate(:status, account: original_account)
+      boost = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), reblog: original_status)
+      viewer.block_domain!(original_account.domain)
+
+      expect(status_ids).to_not include(boost.id)
+    end
+
     it 'excludes replies when replies are disabled' do
       original_status = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'))
       reply = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), in_reply_to_id: original_status.id, in_reply_to_account_id: original_status.account_id)

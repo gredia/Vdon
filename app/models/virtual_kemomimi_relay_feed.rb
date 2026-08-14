@@ -13,6 +13,7 @@ class VirtualKemomimiRelayFeed
     scope.merge!(without_reblogs_scope) unless with_reblogs?
     scope.merge!(without_quotes_scope) unless with_quotes?
     scope.merge!(account_filters_scope)
+    scope.merge!(filtered_reblogs_scope) if with_reblogs?
     scope.merge!(media_only_scope) if media_only?
     scope.merge!(language_scope) if account&.chosen_languages.present?
     scope.where!(visibility_scope)
@@ -69,7 +70,21 @@ class VirtualKemomimiRelayFeed
   end
 
   def account_filters_scope
-    Status.not_excluded_by_account(account).merge(Status.not_domain_blocked_by_account(account))
+    Status
+      .not_excluded_by_account(account)
+      .merge(Status.not_domain_blocked_by_account(account))
+  end
+
+  def filtered_reblogs_scope
+    excluded_reblogs = Status
+      .where(account_id: account.excluded_from_timeline_account_ids)
+      .or(Status.where(account_id: Account.where(domain: account.excluded_from_timeline_domains).select(:id)))
+      .select(:id)
+      .reorder(nil)
+
+    Status
+      .where(reblog_of_id: nil)
+      .or(Status.where.not(reblog_of_id: excluded_reblogs))
   end
 
   def visibility_scope

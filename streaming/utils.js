@@ -63,6 +63,42 @@ export function firstParam(arrayOrString) {
 }
 
 /**
+ * @typedef FilterAccount
+ * @property {string} id
+ * @property {string} acct
+ */
+
+/**
+ * @typedef FilterStatus
+ * @property {FilterAccount} account
+ * @property {FilterAccount[]} [mentions]
+ * @property {FilterStatus?} [reblog]
+ */
+
+/**
+ * Collects the accounts that need relationship checks before a status is
+ * streamed. The author of a boosted status needs the same block, mute, and
+ * domain-block checks as the account that performed the boost.
+ * @param {FilterStatus} status
+ * @returns {{ authorAccountIds: string[], targetAccountIds: string[], accountDomains: string[] }}
+ */
+export function statusFilterTargets(status) {
+  const authorAccounts = [status.account];
+  const mentionedAccounts = [...(status.mentions ?? [])];
+
+  if (status.reblog) {
+    authorAccounts.push(status.reblog.account);
+    mentionedAccounts.push(...(status.reblog.mentions ?? []));
+  }
+
+  const authorAccountIds = [...new Set(authorAccounts.map(account => account.id))];
+  const targetAccountIds = [...new Set(authorAccountIds.concat(mentionedAccounts.map(account => account.id)))];
+  const accountDomains = [...new Set(authorAccounts.map(account => account.acct.split('@')[1]?.toLowerCase()).filter(domain => domain !== undefined))];
+
+  return { authorAccountIds, targetAccountIds, accountDomains };
+}
+
+/**
  * Takes an environment variable that should be an integer, attempts to parse
  * it falling back to a default if not set, and handles errors parsing.
  * @param {string|undefined} value
