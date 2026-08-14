@@ -96,6 +96,14 @@ RSpec.describe VirtualKemomimiRelayFeed do
       expect(status_ids).to_not include(boost.id)
     end
 
+    it 'includes boosts of local statuses when the viewer blocks an unrelated domain' do
+      original_status = Fabricate(:status, account: Fabricate(:account, domain: nil))
+      boost = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), reblog: original_status)
+      viewer.block_domain!('blocked.example')
+
+      expect(status_ids).to include(boost.id)
+    end
+
     it 'excludes replies when replies are disabled' do
       original_status = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'))
       reply = Fabricate(:status, account: Fabricate(:account, domain: 'allowed.example'), in_reply_to_id: original_status.id, in_reply_to_account_id: original_status.account_id)

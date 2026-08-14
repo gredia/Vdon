@@ -76,15 +76,31 @@ class VirtualKemomimiRelayFeed
   end
 
   def filtered_reblogs_scope
-    excluded_reblogs = Status
-      .where(account_id: account.excluded_from_timeline_account_ids)
-      .or(Status.where(account_id: Account.where(domain: account.excluded_from_timeline_domains).select(:id)))
-      .select(:id)
-      .reorder(nil)
+    excluded_account_ids = account.excluded_from_timeline_account_ids
+    excluded_domains = account.excluded_from_timeline_domains
 
-    Status
-      .where(reblog_of_id: nil)
-      .or(Status.where.not(reblog_of_id: excluded_reblogs))
+    return Status.all if excluded_account_ids.empty? && excluded_domains.empty?
+
+    statuses = Status.arel_table
+    reblogged_statuses = statuses.alias('vktl_reblogged_statuses')
+    reblogged_accounts = Account.arel_table.alias('vktl_reblogged_accounts')
+
+    excluded_author = reblogged_statuses[:account_id].in(excluded_account_ids) if excluded_account_ids.present?
+
+    if excluded_domains.present?
+      excluded_domain = reblogged_accounts[:domain].in(excluded_domains)
+      excluded_author = excluded_author ? excluded_author.or(excluded_domain) : excluded_domain
+    end
+
+    excluded_reblog = Arel::SelectManager.new
+      .from(reblogged_statuses)
+      .project(Arel.sql('1'))
+      .join(reblogged_accounts).on(reblogged_accounts[:id].eq(reblogged_statuses[:account_id]))
+      .where(reblogged_statuses[:deleted_at].eq(nil))
+      .where(reblogged_statuses[:id].eq(statuses[:reblog_of_id]))
+      .where(excluded_author)
+
+    Status.where(Arel::Nodes::Not.new(excluded_reblog.exists))
   end
 
   def visibility_scope
