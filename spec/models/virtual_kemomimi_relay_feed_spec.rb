@@ -129,6 +129,19 @@ RSpec.describe VirtualKemomimiRelayFeed do
 
         expect(status_ids).to include(followed_status.id)
       end
+
+      it 'excludes boosts from followed accounts when the original author blocked the viewer' do
+        followed_account = Fabricate(:account, domain: 'followed.example')
+        viewer.follow!(followed_account)
+        original_account = Fabricate(:account, domain: 'allowed.example')
+        original_status = Fabricate(:status, account: original_account)
+        boost = Fabricate(:status, account: followed_account, reblog: original_status)
+        allowed_boost = Fabricate(:status, account: followed_account, reblog: Fabricate(:status))
+        original_account.block!(viewer)
+
+        expect(status_ids).to include(allowed_boost.id)
+        expect(status_ids).to_not include(boost.id)
+      end
     end
   end
 end

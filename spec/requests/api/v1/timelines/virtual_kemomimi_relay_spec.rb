@@ -46,6 +46,18 @@ RSpec.describe 'Virtual kemomimi relay timeline' do
 
         expect(response.parsed_body.pluck(:id)).to include(followed_status.id.to_s)
       end
+
+      it 'does not return followed accounts boosts of posts whose author blocked the viewer' do
+        boost = Fabricate(:status, account: followed_status.account, reblog: relay_status)
+        allowed_boost = Fabricate(:status, account: followed_status.account, reblog: local_status)
+        relay_status.account.block!(user.account)
+
+        subject
+
+        expect(response).to have_http_status(200)
+        expect(response.parsed_body.pluck(:id)).to include(followed_status.id.to_s, allowed_boost.id.to_s)
+        expect(response.parsed_body.pluck(:id)).to_not include(relay_status.id.to_s, boost.id.to_s)
+      end
     end
 
     context 'without an authorization header' do
