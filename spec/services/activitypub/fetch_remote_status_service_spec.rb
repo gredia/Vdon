@@ -329,8 +329,13 @@ RSpec.describe ActivityPub::FetchRemoteStatusService do
           })
         end
 
-        it 'updates status' do
-          expect(existing_status.reload.quote_approval_policy).to eq(InteractionPolicy::POLICY_FLAGS[:public] << 16)
+        it 'updates status and retains the explicit quoting policy' do
+          expect(existing_status.reload)
+            .to have_attributes(
+              quote_approval_policy: (InteractionPolicy::POLICY_FLAGS[:public] << 16) | Status::InteractionPolicyConcern::QUOTE_POLICY_EXPLICIT_FLAG,
+              explicit_quote_policy?: true,
+              implicit_public_quote_policy?: false
+            )
         end
       end
     end
